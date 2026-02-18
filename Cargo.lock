@@ -67,7 +67,7 @@ version = "0.1.0"
 dependencies = [
  "candid",
  "ic-cdk 0.13.6",
- "ic-cdk-macros 0.13.2",
+ "ic-cdk-macros 0.16.0",
  "ic-papi-api",
  "ic-papi-guard",
  "ic-stable-structures",
@@ -194,7 +194,7 @@ version = "0.1.0"
 dependencies = [
  "candid",
  "ic-cdk 0.13.6",
- "ic-cdk-macros 0.13.2",
+ "ic-cdk-macros 0.16.0",
  "ic-papi-api",
  "ic-papi-guard",
  "ic-stable-structures",
