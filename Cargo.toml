@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/vault-core-backend"
+]
+resolver = "2"

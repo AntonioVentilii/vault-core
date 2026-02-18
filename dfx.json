@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "vault-core-backend": {
+      "candid": "src/vault-core-backend/vault-core-backend.did",
+      "package": "vault-core-backend",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
