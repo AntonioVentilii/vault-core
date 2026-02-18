@@ -1,52 +1,26 @@
 use candid::Principal;
 use ic_cdk::{api::time, id, println};
 use ic_cdk_macros::{query, update};
+use ic_papi_api::PaymentType;
 use shared::{
     auth::sign_token,
     types::{FileId, FileMeta, FileStatus, UploadSession, UploadToken},
 };
 
 use crate::{
-    billing::{calculate_reservation_cost, CYCLES_PER_GIB_MONTH, GIB, MIN_CREDIT_TO_START_UPLOAD},
     memory::{StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, UPLOADS, USERS},
+    payments::{SignerMethods, PAYMENT_GUARD},
     types::{BucketInfo, UserState},
 };
 
+const GIB: u64 = 1024 * 1024 * 1024;
+
 #[query]
 pub fn get_pricing() -> String {
-    format!(
-        "Storage cost: {} cycles per GiB/month. Min credit to upload: {} cycles.",
-        CYCLES_PER_GIB_MONTH, MIN_CREDIT_TO_START_UPLOAD
-    )
+    "PAPI enabled. Pricing is determined by the PaymentGuard configuration.".to_string()
 }
 
-#[query]
-pub fn get_balance(user: Option<Principal>) -> u128 {
-    let caller = user.unwrap_or_else(ic_cdk::caller);
-    USERS.with(|u| {
-        u.borrow()
-            .get(&StorablePrincipal(caller))
-            .map(|s| s.credit_cycles)
-            .unwrap_or(0)
-    })
-}
-
-#[update]
-pub fn top_up_credits(amount: u128) -> u128 {
-    let caller = ic_cdk::caller();
-    USERS.with(|u| {
-        let mut map = u.borrow_mut();
-        let key = StorablePrincipal(caller);
-        let mut state = map.get(&key).unwrap_or(UserState {
-            used_bytes: 0,
-            quota_bytes: 10 * GIB, // 10GiB default quota for v1
-            credit_cycles: 0,
-        });
-        state.credit_cycles += amount;
-        map.insert(key, state.clone());
-        state.credit_cycles
-    })
-}
+// get_balance and top_up_credits are removed as we use PAPI/Ledger for balances
 
 #[query]
 pub fn get_usage(user: Option<Principal>) -> UserState {
@@ -71,18 +45,30 @@ pub fn list_files() -> Vec<FileMeta> {
 }
 
 #[update]
-pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, String> {
+pub async fn start_upload(
+    name: String,
+    size_bytes: u64,
+    payment: Option<PaymentType>,
+) -> Result<UploadSession, String> {
     let caller = ic_cdk::caller();
     let key = StorablePrincipal(caller);
 
-    // 1. Check Quota & Balance
-    let required_credit = calculate_reservation_cost(size_bytes);
+    // 1. PAPI Payment Deduction
+    PAYMENT_GUARD
+        .deduct(
+            payment.unwrap_or(PaymentType::AttachedCycles),
+            SignerMethods::StartUpload.fee(),
+        )
+        .await
+        .map_err(|e| format!("Payment failed: {:?}", e))?;
 
-    let mut user_state = USERS.with(|u| {
-        u.borrow()
-            .get(&key)
-            .ok_or_else(|| "User not found. Top up first.".to_string())
-    })?;
+    // 2. Check Quota
+    let user_state = USERS.with(|u| {
+        u.borrow().get(&key).unwrap_or(UserState {
+            used_bytes: 0,
+            quota_bytes: 10 * 1024 * 1024 * 1024, // 10GiB default
+        })
+    });
 
     if user_state.used_bytes + size_bytes > user_state.quota_bytes {
         return Err(format!(
@@ -90,19 +76,6 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
             user_state.used_bytes, size_bytes, user_state.quota_bytes
         ));
     }
-
-    if user_state.credit_cycles < required_credit
-        || user_state.credit_cycles < MIN_CREDIT_TO_START_UPLOAD
-    {
-        return Err(format!(
-            "Insufficient credits. Required: {}, Available: {}",
-            required_credit, user_state.credit_cycles
-        ));
-    }
-
-    // 2. Reserve Credits
-    user_state.credit_cycles -= required_credit;
-    USERS.with(|u| u.borrow_mut().insert(key, user_state));
 
     // 3. Create Session
     let mut id = vec![0u8; 16];
@@ -123,15 +96,11 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
         expected_chunk_count: ((size_bytes + 1024 * 1024 - 1) / (1024 * 1024)) as u32,
         uploaded_chunks: vec![],
         expires_at_ns: time() + 3600 * 1_000_000_000,
-        reserved_credit: required_credit,
     };
 
     UPLOADS.with(|u| u.borrow_mut().insert(upload_id, session.clone()));
 
-    println!(
-        "Started upload for file: {}. Reserved {} credits.",
-        name, required_credit
-    );
+    println!("Started upload for file: {}.", name);
 
     Ok(session)
 }

@@ -13,3 +13,5 @@ sha2 = "0.10"
 hmac = "0.12"
 shared = { path = "src/shared" }
 bucket = { path = "src/bucket" }
+ic-papi-api = { git = "https://github.com/dfinity/papi", rev = "43c42fa2ea5f3d23d81360749deb58a29450c237" }
+ic-papi-guard = { git = "https://github.com/dfinity/papi", rev = "43c42fa2ea5f3d23d81360749deb58a29450c237" }

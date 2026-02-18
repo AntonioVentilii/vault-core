@@ -66,8 +66,10 @@ name = "bucket"
 version = "0.1.0"
 dependencies = [
  "candid",
- "ic-cdk",
- "ic-cdk-macros",
+ "ic-cdk 0.13.6",
+ "ic-cdk-macros 0.13.2",
+ "ic-papi-api",
+ "ic-papi-guard",
  "ic-stable-structures",
  "serde",
  "shared",
@@ -159,6 +161,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cycles-ledger-client"
+version = "0.1.0"
+source = "git+https://github.com/dfinity/papi?rev=43c42fa2ea5f3d23d81360749deb58a29450c237#43c42fa2ea5f3d23d81360749deb58a29450c237"
+dependencies = [
+ "candid",
+ "ic-cdk 0.16.1",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -180,8 +193,10 @@ name = "directory"
 version = "0.1.0"
 dependencies = [
  "candid",
- "ic-cdk",
- "ic-cdk-macros",
+ "ic-cdk 0.13.6",
+ "ic-cdk-macros 0.13.2",
+ "ic-papi-api",
+ "ic-papi-guard",
  "ic-stable-structures",
  "serde",
  "shared",
@@ -232,7 +247,21 @@ checksum = "36c4f1eea1e5ca52801fbc8363cfb67c3218741afaa63fc001b80a0d283d60ca"
 dependencies = [
  "candid",
  "ic-cdk-executor",
- "ic-cdk-macros",
+ "ic-cdk-macros 0.13.2",
+ "ic0",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "ic-cdk"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a50afd39a4c2022ca6cbdf15dbd653b33eeaae9010748b74006bbd717aa7c51a"
+dependencies = [
+ "candid",
+ "ic-cdk-executor",
+ "ic-cdk-macros 0.16.0",
  "ic0",
  "serde",
  "serde_bytes",
@@ -254,8 +283,63 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde",
- "serde_tokenstream",
+ "serde_tokenstream 0.1.7",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "ic-cdk-macros"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d4d857135deef20cc7ea8f3869a30cd9cfeb1392b3a81043790b2cd82adc3e0"
+dependencies = [
+ "candid",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_tokenstream 0.2.2",
+ "syn 2.0.116",
+]
+
+[[package]]
+name = "ic-ledger-types"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a144b5b4c9e4b164b338440cfbdcf9f30ff45e3d48a3be62d2424996dc93d6f"
+dependencies = [
+ "candid",
+ "crc32fast",
+ "hex",
+ "ic-cdk 0.16.1",
+ "serde",
+ "serde_bytes",
+ "sha2",
+]
+
+[[package]]
+name = "ic-papi-api"
+version = "0.1.0"
+source = "git+https://github.com/dfinity/papi?rev=43c42fa2ea5f3d23d81360749deb58a29450c237#43c42fa2ea5f3d23d81360749deb58a29450c237"
+dependencies = [
+ "candid",
+ "cycles-ledger-client",
+ "hex",
+ "ic-ledger-types",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "ic-papi-guard"
+version = "0.1.0"
+source = "git+https://github.com/dfinity/papi?rev=43c42fa2ea5f3d23d81360749deb58a29450c237#43c42fa2ea5f3d23d81360749deb58a29450c237"
+dependencies = [
+ "candid",
+ "cycles-ledger-client",
+ "ic-cdk 0.16.1",
+ "ic-papi-api",
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]
@@ -451,6 +535,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_tokenstream"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64060d864397305347a78851c51588fd283767e7e7589829e8121d65512340f1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 2.0.116",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -467,7 +563,7 @@ version = "0.1.0"
 dependencies = [
  "candid",
  "hmac",
- "ic-cdk",
+ "ic-cdk 0.13.6",
  "ic-stable-structures",
  "serde",
  "serde_bytes",

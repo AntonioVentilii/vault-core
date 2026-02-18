@@ -4,13 +4,17 @@ use candid::{decode_one, encode_one, Principal};
 use ic_stable_structures::{
     memory_manager::{MemoryId, MemoryManager, VirtualMemory},
     storable::Bound,
-    DefaultMemoryImpl, StableBTreeMap, Storable,
+    Cell as StableCell, DefaultMemoryImpl, StableBTreeMap, Storable,
 };
 use shared::types::{FileId, FileMeta, UploadSession};
 
-use crate::types::{BucketInfo, UserState};
+use crate::{
+    config::Config,
+    types::{BucketInfo, UserState},
+};
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
+pub type ConfigCell = StableCell<Option<Config>, Memory>;
 
 impl Storable for UserState {
     const BOUND: Bound = Bound::Unbounded;
@@ -33,6 +37,18 @@ impl Storable for BucketInfo {
 
     fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
         decode_one(&bytes).expect("failed to decode BucketInfo")
+    }
+}
+
+impl Storable for Config {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode Config"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode Config")
     }
 }
 
@@ -78,4 +94,31 @@ thread_local! {
     pub static BUCKETS: RefCell<StableBTreeMap<StorablePrincipal, BucketInfo, Memory>> = RefCell::new(
         StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
     );
+
+    pub static CONFIG: RefCell<ConfigCell> = RefCell::new(
+        StableCell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))), None).expect("failed to init ConfigCell")
+    );
+}
+
+pub fn read_config<R>(f: impl FnOnce(&Config) -> R) -> R {
+    CONFIG.with(|cell| {
+        f(cell
+            .borrow()
+            .get()
+            .as_ref()
+            .expect("config is not initialized"))
+    })
+}
+
+pub fn set_config(arg: crate::config::InitArgs) {
+    let config = Config::from(arg);
+    CONFIG.with(|cell| {
+        cell.borrow_mut()
+            .set(Some(config))
+            .expect("failed to set config");
+    });
+}
+
+pub fn payment_ledger() -> Principal {
+    read_config(|config| config.cycles_ledger)
 }

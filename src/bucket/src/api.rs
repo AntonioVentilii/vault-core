@@ -1,4 +1,5 @@
 use ic_cdk::{api::time, call, eprintln, id, query, spawn, update};
+use ic_papi_api::PaymentType;
 use shared::{
     auth::verify_token,
     types::{FileId, UploadToken},
@@ -6,6 +7,7 @@ use shared::{
 
 use crate::{
     memory::CHUNKS,
+    payments::{SignerMethods, PAYMENT_GUARD},
     types::{ChunkKey, ChunkValue},
 };
 
@@ -16,8 +18,18 @@ pub async fn put_chunk(
     token: UploadToken,
     chunk_index: u32,
     bytes: Vec<u8>,
+    payment: Option<PaymentType>,
 ) -> Result<u32, String> {
-    // 1. Verify Token Signature
+    // 1. PAPI Payment Deduction
+    PAYMENT_GUARD
+        .deduct(
+            payment.unwrap_or(PaymentType::AttachedCycles),
+            SignerMethods::PutChunk.fee(),
+        )
+        .await
+        .map_err(|e| format!("Payment failed: {:?}", e))?;
+
+    // 2. Verify Token Signature
     if !verify_token(&token, SHARED_SECRET) {
         return Err("Invalid upload token signature".to_string());
     }

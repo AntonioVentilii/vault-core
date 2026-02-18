@@ -68,7 +68,6 @@ pub struct UploadSession {
     pub expected_chunk_count: u32,
     pub uploaded_chunks: Vec<u32>,
     pub expires_at_ns: u64,
-    pub reserved_credit: u128,
 }
 
 impl Storable for UploadSession {

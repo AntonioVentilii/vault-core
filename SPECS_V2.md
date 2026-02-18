@@ -125,6 +125,7 @@ Directory defines:
 - `min_deposit`: Minimal amount to open an account or start a large upload.
 
 **Sustainability Pattern:**
+
 - Compute-heavy calls (like `put_chunk`) should require enough cycles to keep the canister "fuel tank" full.
 - Value-added fees (profit) are collected in ICRC-2 tokens and stored in the canister's ledger account.
 
