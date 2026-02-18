@@ -1,15 +1,20 @@
 {
-  "canisters": {
-  },
-  "defaults": {
-    "build": {
-      "args": "",
-      "packtool": ""
-    }
-  },
-  "output_env_file": ".env",
-  "version": 1,
-  "networks": {
+	"canisters": {
+		"bucket": {
+			"type": "rust",
+			"package": "bucket",
+			"candid": "src/bucket/bucket.did"
+		}
+	},
+	"defaults": {
+		"build": {
+			"args": "",
+			"packtool": ""
+		}
+	},
+	"output_env_file": ".env",
+	"version": 1,
+	"networks": {
 		"staging": {
 			"providers": ["https://icp0.io"],
 			"type": "persistent"

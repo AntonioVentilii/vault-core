@@ -7,7 +7,7 @@
 		"format": "prettier --write . && ./scripts/format.sh",
 		"lint": "prettier --check . && ./scripts/lint.sh",
 		"deploy:prod": "dfx deploy --ic --upgrade-unchanged",
-		"deploy:staging": "dfx deploy --network staging --upgrade-unchanged",
+		"deploy:staging": "dfx deploy --network staging --upgrade-unchanged"
 	},
 	"devDependencies": {
 		"@icp-sdk/bindgen": "^0.2.1",

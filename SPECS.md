@@ -6,15 +6,15 @@ Below is a **v1 spec** for a scalable IC file-storage system using a **Directory
 
 ## 1) Goals
 
-* Store arbitrary user files on the IC with **chunked upload** (≤2 MiB per call).
-* Scale storage by adding **bucket canisters** over time (no “canister explosion” per user).
-* Make storage **paid by users** (prepaid credits / cycles-managed).
-* Keep bytes in **stable memory**, keep metadata/indexing small and efficient.
-* Support resumable uploads, deletes, and basic sharing later.
+- Store arbitrary user files on the IC with **chunked upload** (≤2 MiB per call).
+- Scale storage by adding **bucket canisters** over time (no “canister explosion” per user).
+- Make storage **paid by users** (prepaid credits / cycles-managed).
+- Keep bytes in **stable memory**, keep metadata/indexing small and efficient.
+- Support resumable uploads, deletes, and basic sharing later.
 
 Non-goals for v1:
 
-* Content dedup across users, fancy folder semantics, end-to-end encryption (can be added).
+- Content dedup across users, fancy folder semantics, end-to-end encryption (can be added).
 
 ---
 
@@ -24,29 +24,29 @@ Non-goals for v1:
 
 Responsibilities:
 
-* User accounts: quota, credit, usage.
-* File metadata: name, mime, size, timestamps, status.
-* Upload sessions: resumable state, chunk count, commit/abort.
-* Chunk routing: which bucket stores each chunk.
-* Bucket registry & capacity tracking.
-* Pricing and billing (credit reservation + settle).
+- User accounts: quota, credit, usage.
+- File metadata: name, mime, size, timestamps, status.
+- Upload sessions: resumable state, chunk count, commit/abort.
+- Chunk routing: which bucket stores each chunk.
+- Bucket registry & capacity tracking.
+- Pricing and billing (credit reservation + settle).
 
 ### B) Bucket Canisters (data plane)
 
 Responsibilities:
 
-* Store bytes for `(file_id, chunk_index)` in stable memory.
-* Provide `put_chunk/get_chunk/delete_file` primitives.
-* Track per-file byte usage for fast accounting.
-* Optional lazy-GC / tombstones.
+- Store bytes for `(file_id, chunk_index)` in stable memory.
+- Provide `put_chunk/get_chunk/delete_file` primitives.
+- Track per-file byte usage for fast accounting.
+- Optional lazy-GC / tombstones.
 
 ---
 
 ## 3) Core Constraints
 
-* Upload/download must be **chunked** due to **ingress limits** (choose chunk size ≤ 1 MiB for safety).
-* Bucket canisters keep bytes in **stable memory**; directory stores mostly metadata.
-* Never depend on keeping whole files in heap.
+- Upload/download must be **chunked** due to **ingress limits** (choose chunk size ≤ 1 MiB for safety).
+- Bucket canisters keep bytes in **stable memory**; directory stores mostly metadata.
+- Never depend on keeping whole files in heap.
 
 ---
 
@@ -54,23 +54,23 @@ Responsibilities:
 
 ### 4.1 Identifiers
 
-* `UserId = Principal`
-* `FileId = record { owner: UserId; id: blob }`
+- `UserId = Principal`
+- `FileId = record { owner: UserId; id: blob }`
+  - `id` is random 16 bytes UUID-like, or hash-salted. Random is fine for v1.
 
-  * `id` is random 16 bytes UUID-like, or hash-salted. Random is fine for v1.
-* `UploadId = blob` (random 16–32 bytes)
-* `BucketId = Principal`
+- `UploadId = blob` (random 16–32 bytes)
+- `BucketId = Principal`
 
 ### 4.2 File status
 
-* `Pending` (upload in progress)
-* `Ready` (committed)
-* `Deleted` (tombstoned; bytes may be GC’d later)
+- `Pending` (upload in progress)
+- `Ready` (committed)
+- `Deleted` (tombstoned; bytes may be GC’d later)
 
 ### 4.3 Chunk size
 
-* Directory provides `chunk_size` (default: 512 KiB or 1 MiB).
-* Client must upload exactly `chunk_size` per chunk except last chunk.
+- Directory provides `chunk_size` (default: 512 KiB or 1 MiB).
+- Client must upload exactly `chunk_size` per chunk except last chunk.
 
 ### 4.4 Candid-like type sketch (informal)
 
@@ -111,34 +111,33 @@ type UploadSession = record {
 
 ### 5.1 Credit ledger inside Directory
 
-* Directory maintains a **credit balance** per user: `credit_cycles: nat128` (or “credits” unit you define).
-* Uploads require sufficient credit:
-
-  * Directory reserves credit on `start_upload` (or gradually per chunk).
-  * On `commit_upload`, reserved credit is finalised.
-  * On `abort_upload` or expiry, unused reserved credit is released.
+- Directory maintains a **credit balance** per user: `credit_cycles: nat128` (or “credits” unit you define).
+- Uploads require sufficient credit:
+  - Directory reserves credit on `start_upload` (or gradually per chunk).
+  - On `commit_upload`, reserved credit is finalised.
+  - On `abort_upload` or expiry, unused reserved credit is released.
 
 ### 5.2 Pricing primitives
 
 Directory exposes:
 
-* `cycles_per_gib_month` (or per GiB-day) for storage rent
-* `cycles_per_put_chunk` / `cycles_per_get_chunk` for operations overhead (optional)
-* `min_credit_to_start_upload`
+- `cycles_per_gib_month` (or per GiB-day) for storage rent
+- `cycles_per_put_chunk` / `cycles_per_get_chunk` for operations overhead (optional)
+- `min_credit_to_start_upload`
 
 **Implementation note:** you can keep it simple for v1:
 
-* Charge only on stored bytes (`bytes * price_per_byte_month`).
-* Add per-call fee later if needed.
+- Charge only on stored bytes (`bytes * price_per_byte_month`).
+- Add per-call fee later if needed.
 
 ### 5.3 Transparency
 
 Directory exposes:
 
-* `get_balance()`
-* `get_usage()`
-* `estimate_upload_cost(bytes, retention_days)`
-* `get_pricing()`
+- `get_balance()`
+- `get_usage()`
+- `estimate_upload_cost(bytes, retention_days)`
+- `get_pricing()`
 
 ---
 
@@ -146,11 +145,11 @@ Directory exposes:
 
 ### 6.1 Auth
 
-* All methods are authenticated by `caller`.
-* Owner-only for v1:
+- All methods are authenticated by `caller`.
+- Owner-only for v1:
+  - `caller == file_id.owner` required for upload, download pointers, delete.
 
-  * `caller == file_id.owner` required for upload, download pointers, delete.
-* (Later) add ACL for sharing.
+- (Later) add ACL for sharing.
 
 ### 6.2 Public query methods
 
@@ -182,11 +181,10 @@ Alternative: return a compact plan for ranges.
 
 `DownloadPlan` includes:
 
-* `chunk_count`
-* `chunk_size`
-* `locations: vec record { chunk_index: nat32; bucket: principal }`
-
-  * optionally compressed via ranges.
+- `chunk_count`
+- `chunk_size`
+- `locations: vec record { chunk_index: nat32; bucket: principal }`
+  - optionally compressed via ranges.
 
 ### 6.3 Update methods (uploads)
 
@@ -194,41 +192,41 @@ Alternative: return a compact plan for ranges.
 
 Request:
 
-* `name`, `mime`
-* `size_bytes`
-* `sha256: opt blob` (optional)
-* `retention_days: nat32` (optional; default)
+- `name`, `mime`
+- `size_bytes`
+- `sha256: opt blob` (optional)
+- `retention_days: nat32` (optional; default)
   Response:
-* `upload_id`
-* `file_id`
-* `chunk_size`
-* `expected_chunk_count`
-* `expires_at_ns`
-* optional `initial_routes` (see routing below)
+- `upload_id`
+- `file_id`
+- `chunk_size`
+- `expected_chunk_count`
+- `expires_at_ns`
+- optional `initial_routes` (see routing below)
 
 Rules:
 
-* Enforce quota & min credit.
-* Reserve credit for at least `size_bytes` * storage price for retention (or for one month if rent-like).
-* Create `FileMeta(status=Pending)` and `UploadSession`.
+- Enforce quota & min credit.
+- Reserve credit for at least `size_bytes` \* storage price for retention (or for one month if rent-like).
+- Create `FileMeta(status=Pending)` and `UploadSession`.
 
 Errors:
 
-* `InsufficientCredit`
-* `QuotaExceeded`
-* `InvalidSize`
-* `TooManyInProgressUploads`
+- `InsufficientCredit`
+- `QuotaExceeded`
+- `InvalidSize`
+- `TooManyInProgressUploads`
 
 #### `route_chunks(upload_id, chunk_indices: vec nat32) -> RouteChunksRes`
 
 Returns where to upload those chunk indices:
 
-* `routes: vec record { chunk_index; bucket: principal }`
+- `routes: vec record { chunk_index; bucket: principal }`
 
 Rules:
 
-* Deterministic mapping allowed (hash-based), but must respect bucket capacity.
-* Directory must ensure chosen bucket is “writable”.
+- Deterministic mapping allowed (hash-based), but must respect bucket capacity.
+- Directory must ensure chosen bucket is “writable”.
 
 (You can also return all routes in `start_upload` if you prefer.)
 
@@ -236,34 +234,33 @@ Rules:
 
 Request:
 
-* `upload_id`
-* `uploaded_chunk_count` (optional; or infer from session)
-* `final_sha256` (optional)
+- `upload_id`
+- `uploaded_chunk_count` (optional; or infer from session)
+- `final_sha256` (optional)
   Rules:
-* Verify all chunks present (directory’s session state).
-* Mark file `Ready`, finalise billing, add to user `used_bytes`.
-* Release any excess reserved credit.
+- Verify all chunks present (directory’s session state).
+- Mark file `Ready`, finalise billing, add to user `used_bytes`.
+- Release any excess reserved credit.
 
 Errors:
 
-* `UploadNotFound`
-* `UploadIncomplete { missing: vec nat32 }`
-* `HashMismatch` (if used)
+- `UploadNotFound`
+- `UploadIncomplete { missing: vec nat32 }`
+- `HashMismatch` (if used)
 
 #### `abort_upload(upload_id) -> ()`
 
-* Marks file `Deleted` or removes Pending file entirely.
-* Releases reserved credit (minus any non-refundable operation fees if you add them).
+- Marks file `Deleted` or removes Pending file entirely.
+- Releases reserved credit (minus any non-refundable operation fees if you add them).
 
 #### `delete_file(file_id) -> DeleteRes`
 
-* Owner-only.
-* Marks file `Deleted` in directory immediately.
-* Schedules/initiates deletion in all relevant buckets (best-effort).
-* Updates user usage either:
-
-  * immediately (optimistic), or
-  * after bucket confirms deletion (conservative).
+- Owner-only.
+- Marks file `Deleted` in directory immediately.
+- Schedules/initiates deletion in all relevant buckets (best-effort).
+- Updates user usage either:
+  - immediately (optimistic), or
+  - after bucket confirms deletion (conservative).
     For v1, optimistic is fine with a “reconcile” job.
 
 ---
@@ -274,10 +271,9 @@ Buckets should be **dumb** and fast.
 
 ### 7.1 Auth
 
-* Only allow calls from:
-
-  * Directory canister, **or**
-  * Users presenting a short-lived **upload token** minted by Directory.
+- Only allow calls from:
+  - Directory canister, **or**
+  - Users presenting a short-lived **upload token** minted by Directory.
 
 For v1, simplest is: **bucket trusts Directory only**.
 Frontend never calls bucket directly; it always calls directory, and directory proxies chunks.
@@ -290,11 +286,11 @@ For now, I’ll spec the token approach (it scales better).
 
 Directory mints:
 
-* `UploadToken = record { upload_id; file_id; bucket_id; expires_at; allowed_chunks: vec nat32; sig: blob }`
+- `UploadToken = record { upload_id; file_id; bucket_id; expires_at; allowed_chunks: vec nat32; sig: blob }`
   Bucket validates signature (or validates by calling Directory to verify token).
   Pick:
-* **Signature verification** = faster, no cross-canister call.
-* **Call Directory** = simpler but slower.
+- **Signature verification** = faster, no cross-canister call.
+- **Call Directory** = simpler but slower.
 
 ### 7.3 Bucket methods
 
@@ -302,46 +298,46 @@ Directory mints:
 
 Request:
 
-* `token: UploadToken`
-* `chunk_index: nat32`
-* `bytes: blob`
+- `token: UploadToken`
+- `chunk_index: nat32`
+- `bytes: blob`
   Rules:
-* Validate token and chunk_index in allowed set.
-* Enforce size constraints (chunk_size except last chunk if provided).
-* Write bytes to stable memory keyed by `(file_id, chunk_index)`.
-* Idempotent: if same chunk already exists, return success (or require exact same length/hash).
+- Validate token and chunk_index in allowed set.
+- Enforce size constraints (chunk_size except last chunk if provided).
+- Write bytes to stable memory keyed by `(file_id, chunk_index)`.
+- Idempotent: if same chunk already exists, return success (or require exact same length/hash).
 
 Response:
 
-* `stored_bytes: nat32`
-* `etag: opt blob` (optional hash for chunk)
+- `stored_bytes: nat32`
+- `etag: opt blob` (optional hash for chunk)
 
 Errors:
 
-* `Unauthorised`
-* `TokenExpired`
-* `ChunkTooLarge`
-* `BucketReadOnly`
-* `OutOfSpace`
+- `Unauthorised`
+- `TokenExpired`
+- `ChunkTooLarge`
+- `BucketReadOnly`
+- `OutOfSpace`
 
 #### `get_chunk(req: GetChunkReq) -> blob`
 
 Request:
 
-* `file_id`
-* `chunk_index`
-* auth: owner token or directory authorisation (same pattern as upload).
+- `file_id`
+- `chunk_index`
+- auth: owner token or directory authorisation (same pattern as upload).
   Rules:
-* Return bytes.
+- Return bytes.
 
 #### `delete_file(req: DeleteFileReq) -> DeleteFileRes`
 
-* Called by Directory for cleanup/GC.
-* Deletes all chunks for file (if you track per-file chunk list) or marks tombstone.
+- Called by Directory for cleanup/GC.
+- Deletes all chunks for file (if you track per-file chunk list) or marks tombstone.
 
 #### `stat() -> BucketStat`
 
-* Used bytes, free bytes estimate, writable flag, version.
+- Used bytes, free bytes estimate, writable flag, version.
 
 ---
 
@@ -349,24 +345,23 @@ Request:
 
 Directory maintains:
 
-* `buckets: vec BucketInfo { id, writable, used_bytes, soft_limit_bytes, hard_limit_bytes }`
+- `buckets: vec BucketInfo { id, writable, used_bytes, soft_limit_bytes, hard_limit_bytes }`
 
 Routing rules:
 
-* Prefer a bucket with `used_bytes + incoming <= soft_limit`.
-* If none, create or activate a new bucket (see “Provisioning”).
-* Optionally keep a file entirely in one bucket for simplicity.
-
-  * This is recommended for v1: **one file → one bucket**.
+- Prefer a bucket with `used_bytes + incoming <= soft_limit`.
+- If none, create or activate a new bucket (see “Provisioning”).
+- Optionally keep a file entirely in one bucket for simplicity.
+  - This is recommended for v1: **one file → one bucket**.
 
 So:
 
-* `bucket_for_file(file_id) = assigned bucket`
-* all chunks go to that bucket.
+- `bucket_for_file(file_id) = assigned bucket`
+- all chunks go to that bucket.
 
 This keeps the directory’s chunk map tiny:
 
-* store only `file_id -> bucket_id` (instead of per-chunk mapping).
+- store only `file_id -> bucket_id` (instead of per-chunk mapping).
 
 ---
 
@@ -374,20 +369,20 @@ This keeps the directory’s chunk map tiny:
 
 ### 9.1 When to add a new bucket
 
-* If active bucket reaches `soft_limit` (e.g. 80–90% target), directory marks it “draining” and assigns new files to a new bucket.
-* If `hard_limit` reached, set bucket `read_only`.
+- If active bucket reaches `soft_limit` (e.g. 80–90% target), directory marks it “draining” and assigns new files to a new bucket.
+- If `hard_limit` reached, set bucket `read_only`.
 
 ### 9.2 How to create a bucket
 
-* Directory can call the management canister to create/install a new bucket canister (needs cycles).
-* Maintain a “bucket pool” (pre-created buckets) if you want to avoid user-facing latency.
+- Directory can call the management canister to create/install a new bucket canister (needs cycles).
+- Maintain a “bucket pool” (pre-created buckets) if you want to avoid user-facing latency.
 
 ### 9.3 Failure modes
 
-* If directory cannot provision a bucket due to low cycles, return:
+- If directory cannot provision a bucket due to low cycles, return:
+  - `ServiceTemporarilyUnavailable` with explanation.
 
-  * `ServiceTemporarilyUnavailable` with explanation.
-* Never accept an upload you cannot store.
+- Never accept an upload you cannot store.
 
 ---
 
@@ -395,25 +390,25 @@ This keeps the directory’s chunk map tiny:
 
 ### 10.1 Directory stable state
 
-* `users: StableBTreeMap<UserId, UserState>`
-* `files: StableBTreeMap<FileId, FileMeta>`
-* `uploads: StableBTreeMap<UploadId, UploadSession>`
-* `file_to_bucket: StableBTreeMap<FileId, BucketId>`
-* `buckets: StableVec<BucketInfo>` (or map)
+- `users: StableBTreeMap<UserId, UserState>`
+- `files: StableBTreeMap<FileId, FileMeta>`
+- `uploads: StableBTreeMap<UploadId, UploadSession>`
+- `file_to_bucket: StableBTreeMap<FileId, BucketId>`
+- `buckets: StableVec<BucketInfo>` (or map)
 
 ### 10.2 Bucket stable state (two approaches)
 
 **A) Key-value chunks**
 
-* `chunks: StableBTreeMap<(FileId, chunk_index), blob_ref>`
-* `blob_ref` points to stable-memory region / segmented allocator.
-* Maintain `file_index: StableBTreeMap<FileId, vec chunk_index>` for delete speed.
+- `chunks: StableBTreeMap<(FileId, chunk_index), blob_ref>`
+- `blob_ref` points to stable-memory region / segmented allocator.
+- Maintain `file_index: StableBTreeMap<FileId, vec chunk_index>` for delete speed.
 
 **B) Append-only log + index**
 
-* Append chunk bytes to stable memory.
-* Store offset/len in map.
-* Tombstone on delete; periodic compaction later.
+- Append chunk bytes to stable memory.
+- Store offset/len in map.
+- Tombstone on delete; periodic compaction later.
 
 For v1, A is conceptually simpler if you have a stable allocator strategy.
 
@@ -422,32 +417,30 @@ For v1, A is conceptually simpler if you have a stable allocator strategy.
 ## 11) Upload Lifecycle (exact behaviour)
 
 1. `start_upload(size_bytes, ...)`
+   - directory reserves credit
+   - creates `file_id`, `upload_id`, status Pending
+   - assigns bucket for file
 
-   * directory reserves credit
-   * creates `file_id`, `upload_id`, status Pending
-   * assigns bucket for file
 2. Client requests token(s):
+   - `get_upload_token(upload_id, allowed_chunks_range)`
 
-   * `get_upload_token(upload_id, allowed_chunks_range)`
 3. Client calls bucket `put_chunk(token, idx, bytes)` for each chunk
 4. Client notifies directory:
+   - either per chunk: `mark_chunk_uploaded(upload_id, idx, etag?)`
+   - or at end: directory queries bucket for chunk presence (more expensive)
+   - **Recommended:** client calls `mark_chunk_uploaded` after each success.
 
-   * either per chunk: `mark_chunk_uploaded(upload_id, idx, etag?)`
-   * or at end: directory queries bucket for chunk presence (more expensive)
-   * **Recommended:** client calls `mark_chunk_uploaded` after each success.
 5. `commit_upload(upload_id)`
-
-   * directory verifies all chunks marked uploaded
-   * optionally verifies hashes
-   * status Ready, settle billing, update usage
+   - directory verifies all chunks marked uploaded
+   - optionally verifies hashes
+   - status Ready, settle billing, update usage
 
 Expiry:
 
-* Directory has an `expires_at_ns` on upload sessions.
-* A periodic maintenance call (manual cron or external) runs `reap_expired_uploads()`:
-
-  * abort + release reserved credit
-  * ask bucket to delete partial chunks (best-effort)
+- Directory has an `expires_at_ns` on upload sessions.
+- A periodic maintenance call (manual cron or external) runs `reap_expired_uploads()`:
+  - abort + release reserved credit
+  - ask bucket to delete partial chunks (best-effort)
 
 ---
 
@@ -455,36 +448,36 @@ Expiry:
 
 Directory errors:
 
-* `Unauthorised`
-* `NotFound`
-* `QuotaExceeded { requested; available }`
-* `InsufficientCredit { required; available }`
-* `InvalidRequest { reason }`
-* `UploadExpired`
-* `UploadIncomplete { missing: vec nat32 }`
-* `InternalError { code }`
+- `Unauthorised`
+- `NotFound`
+- `QuotaExceeded { requested; available }`
+- `InsufficientCredit { required; available }`
+- `InvalidRequest { reason }`
+- `UploadExpired`
+- `UploadIncomplete { missing: vec nat32 }`
+- `InternalError { code }`
 
 Bucket errors:
 
-* `Unauthorised`
-* `TokenExpired`
-* `ChunkTooLarge`
-* `OutOfSpace`
-* `ReadOnly`
-* `NotFound`
+- `Unauthorised`
+- `TokenExpired`
+- `ChunkTooLarge`
+- `OutOfSpace`
+- `ReadOnly`
+- `NotFound`
 
 ---
 
 ## 13) Security & Abuse Controls (v1 must-haves)
 
-* Rate limit:
+- Rate limit:
+  - `start_upload` per user (e.g. 5/min)
+  - `put_chunk` via token issuance limits
 
-  * `start_upload` per user (e.g. 5/min)
-  * `put_chunk` via token issuance limits
-* Require minimum credit to start upload (prevents free partial uploads).
-* Token expiry short (e.g. 5–15 minutes).
-* Cap in-progress uploads per user.
-* Avoid directory proxying large blobs if possible (token direct to bucket).
+- Require minimum credit to start upload (prevents free partial uploads).
+- Token expiry short (e.g. 5–15 minutes).
+- Cap in-progress uploads per user.
+- Avoid directory proxying large blobs if possible (token direct to bucket).
 
 ---
 
@@ -492,14 +485,14 @@ Bucket errors:
 
 Directory:
 
-* `admin_get_stats()`: total bytes, total files, buckets count, active uploads
-* `admin_set_pricing()`
-* `admin_set_quota(user, ...)` (optional)
+- `admin_get_stats()`: total bytes, total files, buckets count, active uploads
+- `admin_set_pricing()`
+- `admin_set_quota(user, ...)` (optional)
 
 Buckets:
 
-* `stat()` returns usage + read-only flag
-* `set_read_only(bool)` admin-only (directory)
+- `stat()` returns usage + read-only flag
+- `set_read_only(bool)` admin-only (directory)
 
 ---
 
@@ -507,12 +500,12 @@ Buckets:
 
 Frontend only needs:
 
-* `get_pricing/get_balance/get_usage`
-* `start_upload`
-* `get_upload_token` (or `route_chunks` + `get_upload_token`)
-* `mark_chunk_uploaded` (if using it)
-* `commit_upload`
-* `get_download_plan`
-* `delete_file`
+- `get_pricing/get_balance/get_usage`
+- `start_upload`
+- `get_upload_token` (or `route_chunks` + `get_upload_token`)
+- `mark_chunk_uploaded` (if using it)
+- `commit_upload`
+- `get_download_plan`
+- `delete_file`
 
 Everything else can be hidden.
