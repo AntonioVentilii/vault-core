@@ -10,7 +10,7 @@ pub const GIB: u64 = 1024 * 1024 * 1024;
 pub fn estimate_storage_cost(size_bytes: u64, days: u32) -> u128 {
     let cycles_per_byte_month = CYCLES_PER_GIB_MONTH / (GIB as u128);
     let total_for_month = (size_bytes as u128) * cycles_per_byte_month;
-    
+
     // cost per day = total_for_month / 30
     // total cost = cost_per_day * days
     (total_for_month * (days as u128)) / 30

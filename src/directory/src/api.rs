@@ -69,9 +69,11 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
 
     // 1. Check Quota & Balance
     let required_credit = calculate_reservation_cost(size_bytes);
-    
+
     let mut user_state = USERS.with(|u| {
-        u.borrow().get(&key).ok_or_else(|| "User not found. Top up first.".to_string())
+        u.borrow()
+            .get(&key)
+            .ok_or_else(|| "User not found. Top up first.".to_string())
     })?;
 
     if user_state.used_bytes + size_bytes > user_state.quota_bytes {
@@ -81,7 +83,9 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
         ));
     }
 
-    if user_state.credit_cycles < required_credit || user_state.credit_cycles < MIN_CREDIT_TO_START_UPLOAD {
+    if user_state.credit_cycles < required_credit
+        || user_state.credit_cycles < MIN_CREDIT_TO_START_UPLOAD
+    {
         return Err(format!(
             "Insufficient credits. Required: {}, Available: {}",
             required_credit, user_state.credit_cycles
@@ -116,21 +120,50 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
 
     UPLOADS.with(|u| u.borrow_mut().insert(upload_id, session.clone()));
 
-    ic_cdk::println!("Started upload for file: {}. Reserved {} credits.", name, required_credit);
+    ic_cdk::println!(
+        "Started upload for file: {}. Reserved {} credits.",
+        name,
+        required_credit
+    );
 
     Ok(session)
 }
 
 #[update]
+pub fn report_chunk_uploaded(upload_id: Vec<u8>, chunk_index: u32) -> Result<(), String> {
+    UPLOADS.with(|u| {
+        let mut map = u.borrow_mut();
+        if let Some(mut session) = map.get(&upload_id) {
+            if !session.uploaded_chunks.contains(&chunk_index) {
+                session.uploaded_chunks.push(chunk_index);
+                map.insert(upload_id, session);
+            }
+            Ok(())
+        } else {
+            Err("Upload session not found".to_string())
+        }
+    })
+}
+
+#[update]
 pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
     let session = UPLOADS
-        .with(|u| u.borrow_mut().remove(&upload_id))
+        .with(|u| u.borrow().get(&upload_id))
         .ok_or_else(|| "Upload not found".to_string())?;
 
-    // In a real system, we'd adjust the reserved credit if the final size differed
-    // For v1, we assume expected == final.
+    // 1. Verify Completion
+    if session.uploaded_chunks.len() < session.expected_chunk_count as usize {
+        return Err(format!(
+            "Upload incomplete. Received {}/{} chunks.",
+            session.uploaded_chunks.len(),
+            session.expected_chunk_count
+        ));
+    }
 
-    // 1. Update User Usage
+    // Success - remove session
+    UPLOADS.with(|u| u.borrow_mut().remove(&upload_id));
+
+    // 2. Update User Usage
     let caller = session.file_id.owner;
     let key = StorablePrincipal(caller);
     USERS.with(|u| {
@@ -141,7 +174,7 @@ pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
         }
     });
 
-    // 2. Create File Meta
+    // 3. Create File Meta
     let meta = FileMeta {
         file_id: session.file_id.clone(),
         name: "uploaded_file".to_string(), // TODO: Store name in session
@@ -166,7 +199,8 @@ pub fn delete_file(file_id: FileId) -> Result<(), String> {
         return Err("Unauthorized".to_string());
     }
 
-    let meta = FILES.with(|f| f.borrow_mut().remove(&file_id))
+    let meta = FILES
+        .with(|f| f.borrow_mut().remove(&file_id))
         .ok_or_else(|| "File not found".to_string())?;
 
     // Refund/Update usage
@@ -180,4 +214,70 @@ pub fn delete_file(file_id: FileId) -> Result<(), String> {
     });
 
     Ok(())
+}
+
+// Shared secret for v1 (to be improved in later phases)
+const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
+
+#[update]
+pub fn provision_bucket(bucket_id: Principal) -> Result<(), String> {
+    // In a real system, only admins can provision buckets
+    BUCKETS.with(|b| {
+        let mut map = b.borrow_mut();
+        map.insert(
+            StorablePrincipal(bucket_id),
+            BucketInfo {
+                id: bucket_id,
+                writable: true,
+                used_bytes: 0,
+                soft_limit_bytes: 100 * GIB, // 100GiB soft limit per bucket for v1
+                hard_limit_bytes: 105 * GIB,
+            },
+        );
+    });
+    Ok(())
+}
+
+#[update]
+pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> Result<Vec<UploadToken>, String> {
+    let session = UPLOADS
+        .with(|u| u.borrow().get(&upload_id))
+        .ok_or_else(|| "Upload session not found".to_string())?;
+
+    // Auth check: caller must be owner
+    if session.file_id.owner != ic_cdk::caller() {
+        return Err("Unauthorized".to_string());
+    }
+
+    // Pick a bucket (strategy: use first writable bucket for v1)
+    let bucket_id = BUCKETS
+        .with(|b| {
+            b.borrow()
+                .iter()
+                .find(|(_, info)| info.writable)
+                .map(|(_, info)| info.id)
+        })
+        .ok_or_else(|| "No writable buckets available".to_string())?;
+
+    // Record the assignment
+    FILE_TO_BUCKET.with(|ftb| {
+        ftb.borrow_mut()
+            .insert(session.file_id.clone(), StorablePrincipal(bucket_id))
+    });
+
+    // Issue tokens. For v1 we can batch all chunks into one token or one per chunk.
+    // Let's do batch for efficiency if chunks are provided.
+    let mut token = UploadToken {
+        upload_id: session.upload_id.clone(),
+        file_id: session.file_id.clone(),
+        bucket_id,
+        directory_id: ic_cdk::id(),
+        expires_at: session.expires_at_ns,
+        allowed_chunks: chunks,
+        sig: vec![],
+    };
+
+    shared::auth::sign_token(&mut token, SHARED_SECRET);
+
+    Ok(vec![token])
 }

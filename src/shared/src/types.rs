@@ -101,6 +101,7 @@ pub struct UploadToken {
     pub upload_id: UploadId,
     pub file_id: FileId,
     pub bucket_id: BucketId,
+    pub directory_id: Principal,
     pub expires_at: u64,
     pub allowed_chunks: Vec<u32>,
     pub sig: Vec<u8>,
