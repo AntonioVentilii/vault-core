@@ -1,5 +1,5 @@
-use ic_cdk_macros::*;
-use shared::types::{FileId, UploadToken};
+use ic_cdk::{query, update};
+use shared::{FileId, UploadToken};
 
 use crate::{
     memory::CHUNKS,
