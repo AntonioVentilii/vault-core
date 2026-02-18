@@ -5,40 +5,50 @@ flowchart TB
     User[User / Frontend]
 
     subgraph ControlPlane["Directory Canister (Control Plane)"]
-        DirAccounts[User Accounts & Credits]
+        DirAccounts[User Accounts & Quotas]
         DirMeta[File Metadata & Index]
         DirUploads[Upload Sessions]
         DirRouting[Bucket Routing]
+        DirPAPI[PAPI PaymentGuard]
     end
 
     subgraph DataPlane["Bucket Canisters (Data Plane)"]
         Bucket1[(Bucket A)]
         Bucket2[(Bucket B)]
-        BucketN[(Bucket N)]
+        BucketPAPI[PAPI PaymentGuard]
     end
 
-    subgraph Ops["Operations"]
-        Billing[Credit / Cycles Billing]
-        Admin[Monitoring & Admin]
+    subgraph External["External Ecosystem"]
+        CyclesLedger[Cycles Ledger]
+        TokenLedger[ICRC-2 Token Ledgers]
     end
 
-    User -->|start_upload| DirUploads
-    User -->|get_pricing / usage| DirAccounts
+    User -->|start_upload + payment| DirPAPI
+    DirPAPI --> DirUploads
+    User -->|get_pricing| DirPAPI
     User -->|commit_upload| DirUploads
     User -->|list_files| DirMeta
 
     DirRouting --> Bucket1
     DirRouting --> Bucket2
-    DirRouting --> BucketN
 
-    User -->|put_chunk (token)| Bucket1
+    User -->|put_chunk + payment| BucketPAPI
+    BucketPAPI --> Bucket1
     User -->|get_chunk| Bucket1
 
-    Bucket1 -->|stat / usage| DirRouting
+    Bucket1 -->|report_chunk| DirUploads
 
-    Billing --> DirAccounts
-    Admin --> DirRouting
+    DirPAPI --> CyclesLedger
+    DirPAPI --> TokenLedger
+    BucketPAPI -->|Attached Cycles| Bucket1
 ```
+
+## 🔷 Payment Logic (PAPI)
+
+Payment logic is modularised into `payments.rs` in each canister, using the **PAPI (Paid APIs)** library.
+
+- **Directory (Control Plane)**: Enforces fees for metadata operations (e.g., starting an upload). Supports Cycles (direct or via Ledger) and ICRC-2 Tokens.
+- **Bucket (Data Plane)**: Enforces "attached cycles" for data-heavy operations (`put_chunk`). This ensures that bucket canisters are refueled directly by the users, preventing resource exhaustion during large uploads.
 
 ## 🔷 Upload Sequence Diagram
 
@@ -48,20 +58,22 @@ sequenceDiagram
     participant D as Directory
     participant B as Bucket
 
-    U->>D: start_upload(size, metadata)
-    D-->>U: upload_id + chunk_size
+    U->>D: start_upload(size, payment)
+    Note over D: PAPI: deduct(SignerMethods::StartUpload)
+    D-->>U: upload_id + upload_token
 
-    U->>D: get_upload_token(upload_id)
-    D-->>U: upload_token
+    U->>D: get_upload_tokens(upload_id, chunks)
+    D-->>U: upload_token (signed)
 
     loop For each chunk
-        U->>B: put_chunk(token, index, bytes)
-        B-->>U: ok
-        U->>D: mark_chunk_uploaded(index)
+        U->>B: put_chunk(token, chunk_index, bytes, payment)
+        Note over B: PAPI: deduct(SignerMethods::PutChunk)
+        B-->>U: size
+        B-->>D: report_chunk_uploaded(upload_id, index)
     end
 
     U->>D: commit_upload(upload_id)
-    D-->>U: file Ready
+    D-->>U: FileMeta (Ready)
 ```
 
 ## 🔷 Bucket Provisioning Logic (Shard Growth)
