@@ -18,6 +18,7 @@ Vault Core consists of two main canister types:
 2.  [**Bucket Canisters**](file:///Users/antonio.ventilii/projects/vault-core/src/bucket/README.md): The storage workers. Handle chunked file data and enforce payment for storage operations.
 
 For a detailed look at the system design and interaction diagrams, see [ARCHITECTURE.md](file:///Users/antonio.ventilii/projects/vault-core/ARCHITECTURE.md).
+For a deep dive into authorization, see [UPLOAD_TOKENS.md](file:///Users/antonio.ventilii/projects/vault-core/UPLOAD_TOKENS.md).
 
 ## 🔷 Getting Started
 

@@ -90,3 +90,29 @@ flowchart LR
     B -- No --> A
     B -- Yes --> C --> D --> E
 ```
+
+## 🔷 Visual Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Directory
+    participant Bucket
+    participant Ledger
+
+    Note over User, Ledger: 1. Payment Phase (ICRC-2 Tokens)
+    User->>Ledger: icrc2_approve(Directory, amount)
+
+    Note over User, Ledger: 2. Authorization Phase (Upload Tokens)
+    User->>Directory: start_upload(file_info, payment_info)
+    Directory->>Ledger: icrc2_transfer_from(User, amount)
+    Directory-->>User: upload_session_id
+
+    User->>Directory: get_upload_tokens(session_id)
+    Directory-->>User: Signed UploadToken
+
+    Note over User, Ledger: 3. Storage Phase
+    User->>Bucket: put_chunk(UploadToken, data)
+    Bucket->>Bucket: Verify Signature
+    Bucket-->>User: Success
+```
