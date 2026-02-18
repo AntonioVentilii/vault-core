@@ -50,30 +50,39 @@ Payment logic is modularised into `payments.rs` in each canister, using the **PA
 - **Directory (Control Plane)**: Enforces fees for metadata operations (e.g., starting an upload). Supports Cycles (direct or via Ledger) and ICRC-2 Tokens.
 - **Bucket (Data Plane)**: Enforces "attached cycles" for data-heavy operations (`put_chunk`). This ensures that bucket canisters are refueled directly by the users, preventing resource exhaustion during large uploads.
 
-## 🔷 Upload Sequence Diagram
+## 🔷 Upload Sequence Diagram (Complete Flow)
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant D as Directory
-    participant B as Bucket
+    participant L as Ledger (ICRC-2)
+    participant D as Directory (Control)
+    participant B as Bucket (Data)
 
-    U->>D: start_upload(size, payment)
-    Note over D: PAPI: deduct(SignerMethods::StartUpload)
-    D-->>U: upload_id + upload_token
+    Note over U, L: 1. Payment Phase
+    U->>L: icrc2_approve(Spender: Directory, Amount)
+    L-->>U: Allowance Created
 
-    U->>D: get_upload_tokens(upload_id, chunks)
-    D-->>U: upload_token (signed)
+    Note over U, D: 2. Authorization Phase
+    U->>D: start_upload(Size, PaymentInfo)
+    D->>L: icrc2_transfer_from(User, Amount)
+    D-->>U: upload_id
 
+    U->>D: get_upload_tokens(upload_id, [chunk_indices])
+    Note right of D: SignerMethods::IssueToken
+    D-->>U: Vec<UploadToken> (Signed)
+
+    Note over U, B: 3. Storage Phase
     loop For each chunk
-        U->>B: put_chunk(token, chunk_index, bytes, payment)
-        Note over B: PAPI: deduct(SignerMethods::PutChunk)
-        B-->>U: size
+        U->>B: put_chunk(token, index, bytes, cycles)
+        Note right of B: Verify HMAC Signature
+        B-->>U: success
         B-->>D: report_chunk_uploaded(upload_id, index)
     end
 
+    Note over U, D: 4. Finalization
     U->>D: commit_upload(upload_id)
-    D-->>U: FileMeta (Ready)
+    D-->>U: FileMeta (Success)
 ```
 
 ## 🔷 Bucket Provisioning Logic (Shard Growth)
@@ -89,30 +98,4 @@ flowchart LR
     A --> B
     B -- No --> A
     B -- Yes --> C --> D --> E
-```
-
-## 🔷 Visual Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Directory
-    participant Bucket
-    participant Ledger
-
-    Note over User, Ledger: 1. Payment Phase (ICRC-2 Tokens)
-    User->>Ledger: icrc2_approve(Directory, amount)
-
-    Note over User, Ledger: 2. Authorization Phase (Upload Tokens)
-    User->>Directory: start_upload(file_info, payment_info)
-    Directory->>Ledger: icrc2_transfer_from(User, amount)
-    Directory-->>User: upload_session_id
-
-    User->>Directory: get_upload_tokens(session_id)
-    Directory-->>User: Signed UploadToken
-
-    Note over User, Ledger: 3. Storage Phase
-    User->>Bucket: put_chunk(UploadToken, data)
-    Bucket->>Bucket: Verify Signature
-    Bucket-->>User: Success
 ```

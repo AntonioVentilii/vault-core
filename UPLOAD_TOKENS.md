@@ -19,7 +19,7 @@ Upload Tokens are short-lived, cryptographically signed "permits" issued by the 
 
 ---
 
-## 🔷 Interaction Diagram
+## 🔷 Interaction Diagram (Security Hand-off)
 
 ```mermaid
 sequenceDiagram
@@ -27,19 +27,18 @@ sequenceDiagram
     participant Directory
     participant Bucket
 
-    User->>Directory: start_upload(size, payment)
-    Directory-->>User: session_id
+    Note over Directory: Issue Token
+    Directory->>Directory: Generate Payload + Sign (HMAC)
+    Directory-->>User: UploadToken (Signed)
 
-    User->>Directory: get_upload_tokens(session_id, [chunk_indices])
-    Note right of Directory: SignerMethods::IssueToken
-    Directory-->>User: Vec<UploadToken> (Signed)
-
+    Note over Bucket: Validate Token
     User->>Bucket: put_chunk(token, index, bytes)
     Bucket->>Bucket: Verify HMAC(token.sig, Secret)
-    Bucket-->>User: Success
-
-    Bucket-->>Directory: report_chunk_uploaded(index)
+    Bucket-->>User: Success (Authorised)
 ```
+
+> [!TIP]
+> For the complete end-to-end flow including payments and finalization, see the [Upload Sequence Diagram](file:///Users/antonio.ventilii/projects/vault-core/ARCHITECTURE.md#L53-L80) in ARCHITECTURE.md.
 
 ---
 
