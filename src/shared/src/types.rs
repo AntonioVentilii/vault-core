@@ -1,4 +1,7 @@
-use candid::{CandidType, Principal};
+use std::borrow::Cow;
+
+use candid::{decode_one, encode_one, CandidType, Principal};
+use ic_stable_structures::{storable::Bound, Storable};
 use serde::{Deserialize, Serialize};
 
 pub type UserId = Principal;
@@ -9,6 +12,18 @@ pub type BucketId = Principal;
 pub struct FileId {
     pub owner: UserId,
     pub id: Vec<u8>,
+}
+
+impl Storable for FileId {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode FileId"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode FileId")
+    }
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -32,6 +47,18 @@ pub struct FileMeta {
     pub sha256: Option<Vec<u8>>,
 }
 
+impl Storable for FileMeta {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode FileMeta"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode FileMeta")
+    }
+}
+
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct UploadSession {
     pub upload_id: UploadId,
@@ -42,6 +69,18 @@ pub struct UploadSession {
     pub uploaded_chunks: Vec<u32>,
     pub expires_at_ns: u64,
     pub reserved_credit: u128,
+}
+
+impl Storable for UploadSession {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode UploadSession"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode UploadSession")
+    }
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
