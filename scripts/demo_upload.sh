@@ -12,7 +12,7 @@ echo "🔷 Starting Upload (Paying 1M cycles)..."
 # Capture the upload_id from the response
 # The response is a Result<UploadSession, String>
 # record { upload_id = blob "..."; ... }
-UPLOAD_ID=$(dfx canister call directory start_upload '("my_demo_file.txt", 100, opt variant { AttachedCycles })' --with-cycles 1000000 | grep -o 'upload_id = blob "[^"]*"' | cut -d'"' -f2)
+UPLOAD_ID=$(dfx canister call directory start_upload '("my_demo_file.txt", "text/plain", 100, opt variant { AttachedCycles })' --with-cycles 1000000 | grep -o 'upload_id = blob "[^"]*"' | cut -d'"' -f2)
 
 echo "🔷 Upload ID: $UPLOAD_ID"
 
