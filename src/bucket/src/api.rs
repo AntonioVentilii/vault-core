@@ -1,5 +1,8 @@
-use ic_cdk::{query, update};
-use shared::{FileId, UploadToken};
+use ic_cdk::{api::time, call, eprintln, id, query, spawn, update};
+use shared::{
+    auth::verify_token,
+    types::{FileId, UploadToken},
+};
 
 use crate::{
     memory::CHUNKS,
@@ -9,19 +12,23 @@ use crate::{
 const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
 
 #[update]
-async fn put_chunk(token: UploadToken, chunk_index: u32, bytes: Vec<u8>) -> Result<u32, String> {
+pub async fn put_chunk(
+    token: UploadToken,
+    chunk_index: u32,
+    bytes: Vec<u8>,
+) -> Result<u32, String> {
     // 1. Verify Token Signature
-    if !shared::auth::verify_token(&token, SHARED_SECRET) {
+    if !verify_token(&token, SHARED_SECRET) {
         return Err("Invalid upload token signature".to_string());
     }
 
     // 2. Verify Expiry
-    if token.expires_at < ic_cdk::api::time() {
+    if token.expires_at < time() {
         return Err("Upload token expired".to_string());
     }
 
     // 3. Verify Bucket ID (token must be for THIS bucket)
-    if token.bucket_id != ic_cdk::id() {
+    if token.bucket_id != id() {
         return Err("Upload token issued for another bucket".to_string());
     }
 
@@ -57,18 +64,17 @@ async fn put_chunk(token: UploadToken, chunk_index: u32, bytes: Vec<u8>) -> Resu
     let directory_id = token.directory_id;
     let upload_id = token.upload_id.clone();
 
-    ic_cdk::spawn(async move {
-        let res: Result<(Result<(), String>,), _> = ic_cdk::call(
+    spawn(async move {
+        let res: Result<(Result<(), String>,), _> = call(
             directory_id,
             "report_chunk_uploaded",
             (upload_id, chunk_index),
         )
         .await;
         if let Err((code, msg)) = res {
-            ic_cdk::eprintln!(
+            eprintln!(
                 "Failed to report chunk upload to directory: {:?} {}",
-                code,
-                msg
+                code, msg
             );
         }
     });

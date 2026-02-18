@@ -1,8 +1,16 @@
 use candid::Principal;
-use ic_cdk_macros::*;
-use shared::types::*;
+use ic_cdk::{api::time, id, println};
+use ic_cdk_macros::{query, update};
+use shared::{
+    auth::sign_token,
+    types::{FileId, FileMeta, FileStatus, UploadSession, UploadToken},
+};
 
-use crate::{billing::*, memory::*, types::*};
+use crate::{
+    billing::{calculate_reservation_cost, CYCLES_PER_GIB_MONTH, GIB, MIN_CREDIT_TO_START_UPLOAD},
+    memory::{StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, UPLOADS, USERS},
+    types::{BucketInfo, UserState},
+};
 
 #[query]
 pub fn get_pricing() -> String {
@@ -98,7 +106,7 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
 
     // 3. Create Session
     let mut id = vec![0u8; 16];
-    let time_bytes = ic_cdk::api::time().to_be_bytes();
+    let time_bytes = time().to_be_bytes();
     id[..8].copy_from_slice(&time_bytes);
 
     let file_id = FileId {
@@ -114,16 +122,15 @@ pub fn start_upload(name: String, size_bytes: u64) -> Result<UploadSession, Stri
         expected_size_bytes: size_bytes,
         expected_chunk_count: ((size_bytes + 1024 * 1024 - 1) / (1024 * 1024)) as u32,
         uploaded_chunks: vec![],
-        expires_at_ns: ic_cdk::api::time() + 3600 * 1_000_000_000,
+        expires_at_ns: time() + 3600 * 1_000_000_000,
         reserved_credit: required_credit,
     };
 
     UPLOADS.with(|u| u.borrow_mut().insert(upload_id, session.clone()));
 
-    ic_cdk::println!(
+    println!(
         "Started upload for file: {}. Reserved {} credits.",
-        name,
-        required_credit
+        name, required_credit
     );
 
     Ok(session)
@@ -182,8 +189,8 @@ pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
         size_bytes: session.expected_size_bytes,
         chunk_size: session.chunk_size,
         chunk_count: session.expected_chunk_count,
-        created_at_ns: ic_cdk::api::time(),
-        updated_at_ns: ic_cdk::api::time(),
+        created_at_ns: time(),
+        updated_at_ns: time(),
         status: FileStatus::Ready,
         sha256: None,
     };
@@ -271,13 +278,13 @@ pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> Result<Vec<Upl
         upload_id: session.upload_id.clone(),
         file_id: session.file_id.clone(),
         bucket_id,
-        directory_id: ic_cdk::id(),
+        directory_id: id(),
         expires_at: session.expires_at_ns,
         allowed_chunks: chunks,
         sig: vec![],
     };
 
-    shared::auth::sign_token(&mut token, SHARED_SECRET);
+    sign_token(&mut token, SHARED_SECRET);
 
     Ok(vec![token])
 }
