@@ -12,24 +12,43 @@ type FileMeta = record {
 	chunk_size : nat32;
 	file_id : FileId
 };
-type Result = variant { Ok : FileMeta; Err : text };
-type Result_1 = variant { Ok; Err : text };
-type Result_2 = variant { Ok : UploadSession; Err : text };
+
+type PaymentType = variant {
+	AttachedCycles;
+	CallerPaysIcrc2Cycles;
+	PatronPaysIcrc2Cycles;
+	CallerPaysIcrc2Tokens;
+	PatronPaysIcrc2Tokens
+};
+
 type UploadSession = record {
 	upload_id : blob;
 	expected_chunk_count : nat32;
 	expires_at_ns : nat64;
 	file_id : FileId;
-	reserved_credit : nat;
+	name : text;
+	mime : text;
 	uploaded_chunks : vec nat32;
 	expected_size_bytes : nat64;
 	chunk_size : nat32
 };
+
+type ChunkLocation = record {
+	chunk_index : nat32;
+	bucket : principal
+};
+
+type DownloadPlan = record {
+	chunk_count : nat32;
+	chunk_size : nat32;
+	locations : vec ChunkLocation
+};
+
 type UserState = record {
 	used_bytes : nat64;
-	credit_cycles : nat;
 	quota_bytes : nat64
 };
+
 type UploadToken = record {
 	sig : blob;
 	bucket_id : principal;
@@ -39,18 +58,24 @@ type UploadToken = record {
 	upload_id : blob;
 	allowed_chunks : vec nat32
 };
+
+type Result = variant { Ok : FileMeta; Err : text };
+type Result_1 = variant { Ok; Err : text };
+type Result_2 = variant { Ok : UploadSession; Err : text };
 type Result_3 = variant { Ok : vec UploadToken; Err : text };
-type Result_4 = variant { Ok; Err : text };
+type Result_4 = variant { Ok : DownloadPlan; Err : text };
+
 service : {
+	start_upload : (text, text, nat64, opt PaymentType) -> (Result_2);
 	commit_upload : (blob) -> (Result);
+	abort_upload : (blob) -> (Result_1);
 	delete_file : (FileId) -> (Result_1);
-	get_balance : (opt principal) -> (nat) query;
+	get_file_meta : (FileId) -> (Result) query;
+	get_download_plan : (FileId) -> (Result_4) query;
 	get_pricing : () -> (text) query;
 	get_upload_tokens : (blob, vec nat32) -> (Result_3);
 	get_usage : (opt principal) -> (UserState) query;
 	list_files : () -> (vec FileMeta) query;
 	provision_bucket : (principal) -> (Result_1);
-	report_chunk_uploaded : (blob, nat32) -> (Result_4);
-	start_upload : (text, nat64) -> (Result_2);
-	top_up_credits : (nat) -> (nat)
+	report_chunk_uploaded : (blob, nat32) -> (Result_1)
 }

@@ -20,8 +20,6 @@ pub fn get_pricing() -> String {
     "PAPI enabled. Pricing is determined by the PaymentGuard configuration.".to_string()
 }
 
-// get_balance and top_up_credits are removed as we use PAPI/Ledger for balances
-
 #[query]
 pub fn get_usage(user: Option<Principal>) -> UserState {
     let caller = user.unwrap_or_else(ic_cdk::caller);
@@ -47,6 +45,7 @@ pub fn list_files() -> Vec<FileMeta> {
 #[update]
 pub async fn start_upload(
     name: String,
+    mime: String,
     size_bytes: u64,
     payment: Option<PaymentType>,
 ) -> Result<UploadSession, String> {
@@ -91,6 +90,8 @@ pub async fn start_upload(
     let session = UploadSession {
         upload_id: upload_id.clone(),
         file_id,
+        name: name.clone(),
+        mime,
         chunk_size: 1024 * 1024,
         expected_size_bytes: size_bytes,
         expected_chunk_count: ((size_bytes + 1024 * 1024 - 1) / (1024 * 1024)) as u32,
@@ -153,8 +154,8 @@ pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
     // 3. Create File Meta
     let meta = FileMeta {
         file_id: session.file_id.clone(),
-        name: "uploaded_file".to_string(), // TODO: Store name in session
-        mime: "application/octet-stream".to_string(),
+        name: session.name,
+        mime: session.mime,
         size_bytes: session.expected_size_bytes,
         chunk_size: session.chunk_size,
         chunk_count: session.expected_chunk_count,
@@ -167,6 +168,67 @@ pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
     FILES.with(|f| f.borrow_mut().insert(session.file_id, meta.clone()));
 
     Ok(meta)
+}
+
+#[update]
+pub fn abort_upload(upload_id: Vec<u8>) -> Result<(), String> {
+    let session = UPLOADS
+        .with(|u| u.borrow().get(&upload_id))
+        .ok_or_else(|| "Upload not found".to_string())?;
+
+    if session.file_id.owner != ic_cdk::caller() {
+        return Err("Unauthorized".to_string());
+    }
+
+    UPLOADS.with(|u| u.borrow_mut().remove(&upload_id));
+    Ok(())
+}
+
+#[query]
+pub fn get_file_meta(file_id: FileId) -> Result<FileMeta, String> {
+    if file_id.owner != ic_cdk::caller() {
+        return Err("Unauthorized".to_string());
+    }
+
+    FILES.with(|f| {
+        f.borrow()
+            .get(&file_id)
+            .ok_or_else(|| "File not found".to_string())
+    })
+}
+
+#[query]
+pub fn get_download_plan(file_id: FileId) -> Result<shared::types::DownloadPlan, String> {
+    if file_id.owner != ic_cdk::caller() {
+        return Err("Unauthorized".to_string());
+    }
+
+    let meta = FILES.with(|f| {
+        f.borrow()
+            .get(&file_id)
+            .ok_or_else(|| "File not found".to_string())
+    })?;
+
+    let bucket_id = FILE_TO_BUCKET.with(|ftb| {
+        ftb.borrow()
+            .get(&file_id)
+            .map(|b| b.0)
+            .ok_or_else(|| "No bucket assigned for this file".to_string())
+    })?;
+
+    let mut locations = Vec::with_capacity(meta.chunk_count as usize);
+    for i in 0..meta.chunk_count {
+        locations.push(shared::types::ChunkLocation {
+            chunk_index: i,
+            bucket: bucket_id,
+        });
+    }
+
+    Ok(shared::types::DownloadPlan {
+        chunk_count: meta.chunk_count,
+        chunk_size: meta.chunk_size,
+        locations,
+    })
 }
 
 #[update]

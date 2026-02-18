@@ -63,6 +63,8 @@ impl Storable for FileMeta {
 pub struct UploadSession {
     pub upload_id: UploadId,
     pub file_id: FileId,
+    pub name: String,
+    pub mime: String,
     pub chunk_size: u32,
     pub expected_size_bytes: u64,
     pub expected_chunk_count: u32,

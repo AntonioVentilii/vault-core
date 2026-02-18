@@ -56,6 +56,7 @@ vault-core/
 │   └── shared/       # Common types and utilities
 ├── ARCHITECTURE.md   # System design and diagrams
 ├── SPECS_V2.md       # Detailed PAPI integration specs
+├── SECURITY_EVOLUTION.md # Future security roadmap
 └── Cargo.toml        # Workspace configuration
 ```
 
