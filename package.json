@@ -1,0 +1,32 @@
+{
+	"name": "valut-core",
+	"version": "0.0.1",
+	"scripts": {
+		"build": "",
+		"test": "./scripts/test-rust.sh",
+		"format": "prettier --write . && ./scripts/format.sh",
+		"lint": "prettier --check . && ./scripts/lint.sh",
+		"top-up:prod": "dfx ledger top-up icrc-factory --ic --amount 1",
+		"deploy:prod": "dfx deploy --ic --upgrade-unchanged",
+		"deploy:staging": "dfx deploy --network staging --upgrade-unchanged",
+		"deploy:juno": "dfx deploy icrc-factory --network juno --upgrade-unchanged --argument \"(variant { Init = record { cycles_ledger = null } })\"",
+		"reinstall:prod": "dfx canister install icrc-factory --mode reinstall --ic --argument-file ./scripts/icrc-factory.args.did --upgrade-unchanged",
+		"wasm:ledger:prod": "dfx canister call icrc-factory --ic set_ledger_wasm_from_url \"(\\\"https://download.dfinity.systems/ic/e446c64d99a97e38166be23ff2bfade997d15ff7/canisters/ic-icrc1-ledger.wasm.gz\\\")\"",
+		"wasm:index:prod": "dfx canister call icrc-factory --ic set_index_wasm_from_url \"(\\\"https://download.dfinity.systems/ic/e446c64d99a97e38166be23ff2bfade997d15ff7/canisters/ic-icrc1-index-ng.wasm.gz\\\")\"",
+		"wasm:prod": "npm run wasm:ledger:prod && npm run wasm:index:prod",
+		"wasm:ledger:juno": "dfx canister call icrc-factory --network juno set_ledger_wasm_from_url \"(\\\"https://download.dfinity.systems/ic/e446c64d99a97e38166be23ff2bfade997d15ff7/canisters/ic-icrc1-ledger.wasm.gz\\\")\"",
+		"wasm:index:juno": "dfx canister call icrc-factory --network juno set_index_wasm_from_url \"(\\\"https://download.dfinity.systems/ic/e446c64d99a97e38166be23ff2bfade997d15ff7/canisters/ic-icrc1-index-ng.wasm.gz\\\")\"",
+		"wasm:juno": "npm run wasm:ledger:juno && npm run wasm:index:juno",
+		"start:juno": "npm run deploy:juno && npm run wasm:juno",
+		"ledger:prod": "dfx canister call icrc-factory --ic --wallet $(dfx identity get-wallet --ic) --with-cycles 1_100_000_000_000 create_icrc_ledger",
+		"index:prod": "dfx canister call icrc-factory --ic --wallet $(dfx identity get-wallet --ic) --with-cycles 1_100_000_000_000 create_icrc_index",
+		"ledger:juno": "dfx canister call icrc-factory --network juno --wallet $(dfx identity get-wallet --network juno) --with-cycles 1_100_000_000_000 create_icrc_ledger \"(record { decimals = null; transfer_fee = null; minting_account = null; name = null; symbol = null; }, null,)\"",
+		"did": "./scripts/did.sh && npm run format"
+	},
+	"devDependencies": {
+		"@icp-sdk/bindgen": "^0.2.1",
+		"prettier": "^3.7.4",
+		"prettier-plugin-motoko": "^0.12.1",
+		"prettier-plugin-organize-imports": "^4.3.0"
+	}
+}

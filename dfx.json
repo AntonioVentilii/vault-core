@@ -1,10 +1,5 @@
 {
   "canisters": {
-    "vault-core-backend": {
-      "candid": "src/vault-core-backend/vault-core-backend.did",
-      "package": "vault-core-backend",
-      "type": "rust"
-    }
   },
   "defaults": {
     "build": {
@@ -13,5 +8,19 @@
     }
   },
   "output_env_file": ".env",
-  "version": 1
+  "version": 1,
+  "networks": {
+		"staging": {
+			"providers": ["https://icp0.io"],
+			"type": "persistent"
+		},
+		"juno": {
+			"bind": "127.0.0.1:5987",
+			"type": "ephemeral"
+		},
+		"local": {
+			"bind": "127.0.0.1:4943",
+			"type": "ephemeral"
+		}
+	}
 }

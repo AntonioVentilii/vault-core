@@ -1,5 +1,3 @@
 [workspace]
-members = [
-    "src/vault-core-backend"
-]
+members = []
 resolver = "2"
