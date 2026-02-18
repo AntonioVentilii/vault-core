@@ -1,0 +1,81 @@
+use std::{borrow::Cow, cell::RefCell};
+
+use candid::{decode_one, encode_one, Principal};
+use ic_stable_structures::{
+    memory_manager::{MemoryId, MemoryManager, VirtualMemory},
+    storable::Bound,
+    DefaultMemoryImpl, StableBTreeMap, Storable,
+};
+use shared::types::{FileId, FileMeta, UploadSession};
+
+use crate::types::{BucketInfo, UserState};
+
+type Memory = VirtualMemory<DefaultMemoryImpl>;
+
+impl Storable for UserState {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode UserState"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode UserState")
+    }
+}
+
+impl Storable for BucketInfo {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode BucketInfo"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode BucketInfo")
+    }
+}
+
+// Wrapper for Principal to make it Storable
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StorablePrincipal(pub Principal);
+
+impl Storable for StorablePrincipal {
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 29,
+        is_fixed_size: false,
+    };
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Borrowed(self.0.as_slice())
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        Self(Principal::from_slice(&bytes))
+    }
+}
+
+thread_local! {
+    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
+        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
+
+    pub static USERS: RefCell<StableBTreeMap<StorablePrincipal, UserState, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))))
+    );
+
+    pub static FILES: RefCell<StableBTreeMap<FileId, FileMeta, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
+    );
+
+    pub static UPLOADS: RefCell<StableBTreeMap<Vec<u8>, UploadSession, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))))
+    );
+
+    pub static FILE_TO_BUCKET: RefCell<StableBTreeMap<FileId, StorablePrincipal, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
+    );
+
+    pub static BUCKETS: RefCell<StableBTreeMap<StorablePrincipal, BucketInfo, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(4))))
+    );
+}
