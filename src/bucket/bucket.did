@@ -1,25 +1,40 @@
-type ChunkLocation = record { bucket : principal; chunk_index : nat32 };
-type DownloadPlan = record {
-	locations : vec ChunkLocation;
-	chunk_count : nat32;
-	chunk_size : nat32
+type Account = record { owner : principal; subaccount : opt blob };
+type BucketError = variant {
+	ChunkNotFound;
+	WrongBucket;
+	PaymentFailed : text;
+	ChunkNotAllowed : nat32;
+	InvalidSignature;
+	TokenExpired;
+	Unauthorized;
+	Other : text;
+	InvalidFileId
 };
+type CallerPaysIcrc2Tokens = record { ledger : principal };
 type FileId = record { id : blob; owner : principal };
-type Result = variant { Ok : nat32; Err : text };
-type Result_1 = variant { Ok : blob; Err : text };
-type Result_2 = variant { Ok; Err : text };
+type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
+type PaymentType = variant {
+	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
+	AttachedCycles;
+	CallerPaysIcrc2Cycles;
+	CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
+	PatronPaysIcrc2Cycles : Account
+};
+type Result = variant { Ok; Err : BucketError };
+type Result_1 = variant { Ok : blob; Err : BucketError };
+type Result_2 = variant { Ok : nat32; Err : BucketError };
 type UploadToken = record {
 	sig : blob;
 	bucket_id : principal;
-	directory_id : principal;
-	file_id : FileId;
-	expires_at : nat64;
 	upload_id : blob;
-	allowed_chunks : vec nat32
+	directory_id : principal;
+	expires_at : nat64;
+	allowed_chunks : vec nat32;
+	file_id : FileId
 };
 service : {
-	delete_file : (FileId) -> (Result_2);
+	delete_file : (FileId) -> (Result);
 	get_chunk : (FileId, nat32) -> (Result_1) query;
-	put_chunk : (UploadToken, nat32, blob) -> (Result);
+	put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (Result_2);
 	stat : () -> (text) query
 }

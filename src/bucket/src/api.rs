@@ -6,6 +6,7 @@ use shared::{
 };
 
 use crate::{
+    errors::BucketError,
     memory::CHUNKS,
     payments::{SignerMethods, PAYMENT_GUARD},
     types::{ChunkKey, ChunkValue},
@@ -19,7 +20,7 @@ pub async fn put_chunk(
     chunk_index: u32,
     bytes: Vec<u8>,
     payment: Option<PaymentType>,
-) -> Result<u32, String> {
+) -> Result<u32, BucketError> {
     // 1. PAPI Payment Deduction
     PAYMENT_GUARD
         .deduct(
@@ -27,26 +28,26 @@ pub async fn put_chunk(
             SignerMethods::PutChunk.fee(),
         )
         .await
-        .map_err(|e| format!("Payment failed: {:?}", e))?;
+        .map_err(|e| BucketError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
 
     // 2. Verify Token Signature
     if !verify_token(&token, SHARED_SECRET) {
-        return Err("Invalid upload token signature".to_string());
+        return Err(BucketError::InvalidSignature);
     }
 
     // 2. Verify Expiry
     if token.expires_at < time() {
-        return Err("Upload token expired".to_string());
+        return Err(BucketError::TokenExpired);
     }
 
     // 3. Verify Bucket ID (token must be for THIS bucket)
     if token.bucket_id != id() {
-        return Err("Upload token issued for another bucket".to_string());
+        return Err(BucketError::WrongBucket);
     }
 
     // 4. Verify Chunk Index
     if !token.allowed_chunks.contains(&chunk_index) {
-        return Err(format!("Chunk index {} not allowed by token", chunk_index));
+        return Err(BucketError::ChunkNotAllowed(chunk_index));
     }
 
     let file_id = &token.file_id;
@@ -56,7 +57,7 @@ pub async fn put_chunk(
 
     let mut fid = [0u8; 16];
     if file_id.id.len() != 16 {
-        return Err("Invalid file_id length".to_string());
+        return Err(BucketError::InvalidFileId);
     }
     fid.copy_from_slice(&file_id.id);
 
@@ -77,7 +78,8 @@ pub async fn put_chunk(
     let upload_id = token.upload_id.clone();
 
     spawn(async move {
-        let res: Result<(Result<(), String>,), _> = call(
+        // Ignore the response type using candid::Reserved
+        let res: Result<(candid::Reserved,), _> = call(
             directory_id,
             "report_chunk_uploaded",
             (upload_id, chunk_index),
@@ -95,14 +97,14 @@ pub async fn put_chunk(
 }
 
 #[query]
-pub fn get_chunk(file_id: FileId, chunk_index: u32) -> Result<Vec<u8>, String> {
+pub fn get_chunk(file_id: FileId, chunk_index: u32) -> Result<Vec<u8>, BucketError> {
     let owner_bytes = file_id.owner.as_slice();
     let mut owner = [0u8; 29];
     owner[..owner_bytes.len()].copy_from_slice(owner_bytes);
 
     let mut fid = [0u8; 16];
     if file_id.id.len() != 16 {
-        return Err("Invalid file_id length".to_string());
+        return Err(BucketError::InvalidFileId);
     }
     fid.copy_from_slice(&file_id.id);
 
@@ -117,19 +119,19 @@ pub fn get_chunk(file_id: FileId, chunk_index: u32) -> Result<Vec<u8>, String> {
         c.borrow()
             .get(&key)
             .map(|v| v.0.clone())
-            .ok_or_else(|| "Chunk not found".to_string())
+            .ok_or_else(|| BucketError::ChunkNotFound)
     })
 }
 
 #[update]
-pub fn delete_file(file_id: FileId) -> Result<(), String> {
+pub fn delete_file(file_id: FileId) -> Result<(), BucketError> {
     let owner_bytes = file_id.owner.as_slice();
     let mut owner_fixed = [0u8; 29];
     owner_fixed[..owner_bytes.len()].copy_from_slice(owner_bytes);
 
     let mut fid = [0u8; 16];
     if file_id.id.len() != 16 {
-        return Err("Invalid file_id length".to_string());
+        return Err(BucketError::InvalidFileId);
     }
     fid.copy_from_slice(&file_id.id);
 

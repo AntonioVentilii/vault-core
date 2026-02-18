@@ -1,5 +1,6 @@
 pub mod api;
 pub mod config;
+pub mod errors;
 pub mod memory;
 pub mod payments;
 pub mod types;
@@ -14,7 +15,7 @@ use ic_cdk_macros::{init, post_upgrade};
 pub use ic_papi_api::PaymentType;
 use shared::types::{FileId, FileMeta, UploadSession, UploadToken};
 
-use crate::{config::InitArgs, memory::set_config, types::UserState};
+use crate::{config::InitArgs, errors::DirectoryError, memory::set_config, types::UserState};
 
 #[init]
 fn init(args: InitArgs) {

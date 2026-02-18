@@ -8,6 +8,7 @@ use shared::{
 };
 
 use crate::{
+    errors::DirectoryError,
     memory::{StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, UPLOADS, USERS},
     payments::{SignerMethods, PAYMENT_GUARD},
     types::{BucketInfo, UserState},
@@ -48,7 +49,7 @@ pub async fn start_upload(
     mime: String,
     size_bytes: u64,
     payment: Option<PaymentType>,
-) -> Result<UploadSession, String> {
+) -> Result<UploadSession, DirectoryError> {
     let caller = ic_cdk::caller();
     let key = StorablePrincipal(caller);
 
@@ -59,7 +60,7 @@ pub async fn start_upload(
             SignerMethods::StartUpload.fee(),
         )
         .await
-        .map_err(|e| format!("Payment failed: {:?}", e))?;
+        .map_err(|e| DirectoryError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
 
     // 2. Check Quota
     let user_state = USERS.with(|u| {
@@ -70,10 +71,11 @@ pub async fn start_upload(
     });
 
     if user_state.used_bytes + size_bytes > user_state.quota_bytes {
-        return Err(format!(
-            "Quota exceeded. Used: {}, Requested: {}, Quota: {}",
-            user_state.used_bytes, size_bytes, user_state.quota_bytes
-        ));
+        return Err(DirectoryError::QuotaExceeded {
+            used: user_state.used_bytes,
+            requested: size_bytes,
+            quota: user_state.quota_bytes,
+        });
     }
 
     // 3. Create Session
@@ -107,7 +109,7 @@ pub async fn start_upload(
 }
 
 #[update]
-pub fn report_chunk_uploaded(upload_id: Vec<u8>, chunk_index: u32) -> Result<(), String> {
+pub fn report_chunk_uploaded(upload_id: Vec<u8>, chunk_index: u32) -> Result<(), DirectoryError> {
     UPLOADS.with(|u| {
         let mut map = u.borrow_mut();
         if let Some(mut session) = map.get(&upload_id) {
@@ -117,24 +119,23 @@ pub fn report_chunk_uploaded(upload_id: Vec<u8>, chunk_index: u32) -> Result<(),
             }
             Ok(())
         } else {
-            Err("Upload session not found".to_string())
+            Err(DirectoryError::UploadSessionNotFound)
         }
     })
 }
 
 #[update]
-pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
+pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, DirectoryError> {
     let session = UPLOADS
         .with(|u| u.borrow().get(&upload_id))
-        .ok_or_else(|| "Upload not found".to_string())?;
+        .ok_or_else(|| DirectoryError::UploadSessionNotFound)?;
 
     // 1. Verify Completion
     if session.uploaded_chunks.len() < session.expected_chunk_count as usize {
-        return Err(format!(
-            "Upload incomplete. Received {}/{} chunks.",
-            session.uploaded_chunks.len(),
-            session.expected_chunk_count
-        ));
+        return Err(DirectoryError::UploadIncomplete {
+            uploaded: session.uploaded_chunks.len() as u32,
+            expected: session.expected_chunk_count,
+        });
     }
 
     // Success - remove session
@@ -171,13 +172,13 @@ pub fn commit_upload(upload_id: Vec<u8>) -> Result<FileMeta, String> {
 }
 
 #[update]
-pub fn abort_upload(upload_id: Vec<u8>) -> Result<(), String> {
+pub fn abort_upload(upload_id: Vec<u8>) -> Result<(), DirectoryError> {
     let session = UPLOADS
         .with(|u| u.borrow().get(&upload_id))
-        .ok_or_else(|| "Upload not found".to_string())?;
+        .ok_or_else(|| DirectoryError::UploadSessionNotFound)?;
 
     if session.file_id.owner != ic_cdk::caller() {
-        return Err("Unauthorized".to_string());
+        return Err(DirectoryError::Unauthorized);
     }
 
     UPLOADS.with(|u| u.borrow_mut().remove(&upload_id));
@@ -185,35 +186,34 @@ pub fn abort_upload(upload_id: Vec<u8>) -> Result<(), String> {
 }
 
 #[query]
-pub fn get_file_meta(file_id: FileId) -> Result<FileMeta, String> {
+pub fn get_file_meta(file_id: FileId) -> Result<FileMeta, DirectoryError> {
     if file_id.owner != ic_cdk::caller() {
-        return Err("Unauthorized".to_string());
+        return Err(DirectoryError::Unauthorized);
     }
 
     FILES.with(|f| {
         f.borrow()
             .get(&file_id)
-            .ok_or_else(|| "File not found".to_string())
+            .ok_or_else(|| DirectoryError::FileNotFound)
     })
 }
 
 #[query]
-pub fn get_download_plan(file_id: FileId) -> Result<shared::types::DownloadPlan, String> {
+pub fn get_download_plan(file_id: FileId) -> Result<shared::types::DownloadPlan, DirectoryError> {
     if file_id.owner != ic_cdk::caller() {
-        return Err("Unauthorized".to_string());
+        return Err(DirectoryError::Unauthorized);
     }
 
     let meta = FILES.with(|f| {
         f.borrow()
             .get(&file_id)
-            .ok_or_else(|| "File not found".to_string())
+            .ok_or_else(|| DirectoryError::FileNotFound)
     })?;
 
     let bucket_id = FILE_TO_BUCKET.with(|ftb| {
-        ftb.borrow()
-            .get(&file_id)
-            .map(|b| b.0)
-            .ok_or_else(|| "No bucket assigned for this file".to_string())
+        ftb.borrow().get(&file_id).map(|b| b.0).ok_or_else(|| {
+            DirectoryError::InvalidRequest("No bucket assigned for this file".to_string())
+        })
     })?;
 
     let mut locations = Vec::with_capacity(meta.chunk_count as usize);
@@ -232,14 +232,14 @@ pub fn get_download_plan(file_id: FileId) -> Result<shared::types::DownloadPlan,
 }
 
 #[update]
-pub fn delete_file(file_id: FileId) -> Result<(), String> {
+pub fn delete_file(file_id: FileId) -> Result<(), DirectoryError> {
     if file_id.owner != ic_cdk::caller() {
-        return Err("Unauthorized".to_string());
+        return Err(DirectoryError::Unauthorized);
     }
 
     let meta = FILES
         .with(|f| f.borrow_mut().remove(&file_id))
-        .ok_or_else(|| "File not found".to_string())?;
+        .ok_or_else(|| DirectoryError::FileNotFound)?;
 
     // Refund/Update usage
     let key = StorablePrincipal(file_id.owner);
@@ -258,7 +258,7 @@ pub fn delete_file(file_id: FileId) -> Result<(), String> {
 const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
 
 #[update]
-pub fn provision_bucket(bucket_id: Principal) -> Result<(), String> {
+pub fn provision_bucket(bucket_id: Principal) -> Result<(), DirectoryError> {
     // In a real system, only admins can provision buckets
     BUCKETS.with(|b| {
         let mut map = b.borrow_mut();
@@ -277,14 +277,17 @@ pub fn provision_bucket(bucket_id: Principal) -> Result<(), String> {
 }
 
 #[update]
-pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> Result<Vec<UploadToken>, String> {
+pub fn get_upload_tokens(
+    upload_id: Vec<u8>,
+    chunks: Vec<u32>,
+) -> Result<Vec<UploadToken>, DirectoryError> {
     let session = UPLOADS
         .with(|u| u.borrow().get(&upload_id))
-        .ok_or_else(|| "Upload session not found".to_string())?;
+        .ok_or_else(|| DirectoryError::UploadSessionNotFound)?;
 
     // Auth check: caller must be owner
     if session.file_id.owner != ic_cdk::caller() {
-        return Err("Unauthorized".to_string());
+        return Err(DirectoryError::Unauthorized);
     }
 
     // Pick a bucket (strategy: use first writable bucket for v1)
@@ -295,7 +298,7 @@ pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> Result<Vec<Upl
                 .find(|(_, info)| info.writable)
                 .map(|(_, info)| info.id)
         })
-        .ok_or_else(|| "No writable buckets available".to_string())?;
+        .ok_or_else(|| DirectoryError::NoWritableBuckets)?;
 
     // Record the assignment
     FILE_TO_BUCKET.with(|ftb| {
