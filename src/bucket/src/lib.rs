@@ -42,16 +42,10 @@ fn post_upgrade(args: Option<Args>) {
             Args::Upgrade(Some(upgrade_args)) => {
                 mutate_config(|config| {
                     if let Some(admins) = upgrade_args.admins {
-                        config.admins = admins;
-                    }
-                    if let Some(icp) = upgrade_args.icp_ledger {
-                        config.icp_ledger = Some(icp);
-                    }
-                    if let Some(ckusdc) = upgrade_args.ckusdc_ledger {
-                        config.ckusdc_ledger = Some(ckusdc);
+                        config.admins = Some(admins);
                     }
                     if let Some(secret) = upgrade_args.shared_secret {
-                        config.shared_secret = secret;
+                        config.shared_secret = Some(secret);
                     }
                 });
             }

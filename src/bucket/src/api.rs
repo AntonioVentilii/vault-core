@@ -32,12 +32,12 @@ pub async fn put_chunk(
             .map_err(|e| BucketError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
 
         // 2. Check Read-Only Mode
-        if crate::memory::read_config(|c| c.read_only) {
+        if crate::memory::read_config(|c| c.read_only.unwrap_or(false)) {
             return Err(BucketError::ReadOnly);
         }
 
         // 3. Verify Token Signature
-        let secret = crate::memory::read_config(|c| c.shared_secret.clone());
+        let secret = crate::memory::read_config(|c| c.shared_secret.clone().unwrap_or_default());
         if !verify_token(&token, &secret) {
             return Err(BucketError::InvalidSignature);
         }
@@ -111,7 +111,7 @@ pub async fn put_chunk(
 pub fn get_chunk(token: DownloadToken, chunk_index: u32) -> GetChunkResult {
     let result: Result<Vec<u8>, BucketError> = (|| {
         // 1. Verify Token Signature
-        let secret = crate::memory::read_config(|c| c.shared_secret.clone());
+        let secret = crate::memory::read_config(|c| c.shared_secret.clone().unwrap_or_default());
         if !verify_download_token(&token, &secret) {
             return Err(BucketError::InvalidSignature);
         }
@@ -207,7 +207,12 @@ fn is_admin(caller: Principal) -> bool {
     if ic_cdk::api::is_controller(&caller) {
         return true;
     }
-    crate::memory::read_config(|c| c.admins.contains(&caller))
+    crate::memory::read_config(|c| {
+        c.admins
+            .as_ref()
+            .map(|a| a.contains(&caller))
+            .unwrap_or(false)
+    })
 }
 
 #[update]
@@ -254,7 +259,7 @@ pub fn admin_set_read_only(read_only: bool) -> AdminSetReadOnlyResult {
         if !is_admin(ic_cdk::caller()) {
             return Err(BucketError::AdminOnly);
         }
-        crate::memory::mutate_config(|c| c.read_only = read_only);
+        crate::memory::mutate_config(|c| c.read_only = Some(read_only));
         Ok(())
     })();
 

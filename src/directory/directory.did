@@ -69,8 +69,6 @@ type GetUploadTokensResult = variant {
 };
 type InitArgs = record {
 	rate_per_gb_per_month : nat64;
-	ckusdc_ledger : principal;
-	icp_ledger : principal;
 	admins : vec principal;
 	shared_secret : blob
 };
@@ -87,8 +85,6 @@ type StartUploadResult = variant { Ok : UploadSession; Err : DirectoryError };
 type TopUpBalanceResult = variant { Ok : nat64; Err : DirectoryError };
 type UpgradeArgs = record {
 	rate_per_gb_per_month : opt nat64;
-	ckusdc_ledger : opt principal;
-	icp_ledger : opt principal;
 	admins : opt vec principal;
 	shared_secret : opt blob
 };

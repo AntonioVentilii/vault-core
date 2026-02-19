@@ -285,10 +285,6 @@ impl Default for TestSetup {
     fn default() -> Self {
         let pic = Arc::new(PocketIc::new());
 
-        // We need these for directory init
-        let icp_ledger = Principal::anonymous();
-        let ckusdc_ledger = Principal::anonymous();
-
         // 1. Deploy Proxy (No arguments)
         let proxy = PicCanisterBuilder::default()
             .with_wasm(&PicCanister::cargo_wasm_path("test_proxy"))
@@ -297,8 +293,8 @@ impl Default for TestSetup {
 
         // 2. Deploy Bucket
         let bucket_init_args = (BucketArgs::Init(BucketInitArgs {
-            icp_ledger,
-            ckusdc_ledger,
+            admins: vec![Principal::anonymous()],
+            shared_secret: vec![0; 32],
         }),);
         let bucket = PicCanisterBuilder::default()
             .with_wasm(&PicCanister::cargo_wasm_path("bucket"))
@@ -307,9 +303,9 @@ impl Default for TestSetup {
 
         // 3. Deploy Directory
         let directory_init_args = (DirectoryArgs::Init(DirectoryInitArgs {
-            icp_ledger,
-            ckusdc_ledger,
             rate_per_gb_per_month: 100_000_000, // 0.1 tokens per GB
+            admins: vec![Principal::anonymous()],
+            shared_secret: vec![0; 32],
         }),);
         let directory = PicCanisterBuilder::default()
             .with_wasm(&PicCanister::cargo_wasm_path("directory"))

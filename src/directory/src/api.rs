@@ -32,7 +32,7 @@ use crate::{
 #[query]
 pub fn get_pricing() -> PricingConfig {
     crate::memory::read_config(|config| PricingConfig {
-        rate_per_gb_per_month: config.rate_per_gb_per_month,
+        rate_per_gb_per_month: config.rate_per_gb_per_month.unwrap_or(100_000_000), /* Default to 0.1 tokens */
     })
 }
 
@@ -318,7 +318,7 @@ fn generate_download_plan(file_id: FileId) -> Result<DownloadPlan, DirectoryErro
         expires_at,
         sig: vec![],
     };
-    let secret = read_config(|c| c.shared_secret.clone());
+    let secret = read_config(|c| c.shared_secret.clone().unwrap_or_default());
     sign_download_token(&mut token, &secret);
     auth.push(BucketAuth { bucket_id, token });
 
@@ -478,7 +478,12 @@ fn is_admin(caller: Principal) -> bool {
     if ic_cdk::api::is_controller(&caller) {
         return true;
     }
-    read_config(|c| c.admins.contains(&caller))
+    read_config(|c| {
+        c.admins
+            .as_ref()
+            .map(|a| a.contains(&caller))
+            .unwrap_or(false)
+    })
 }
 
 #[update]
@@ -487,7 +492,7 @@ pub fn admin_set_pricing(rate: u64) -> Result<(), DirectoryError> {
         return Err(DirectoryError::AdminOnly);
     }
     crate::memory::mutate_config(|c| {
-        c.rate_per_gb_per_month = rate;
+        c.rate_per_gb_per_month = Some(rate);
     });
     Ok(())
 }
@@ -591,7 +596,7 @@ pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> GetUploadToken
             sig: vec![],
         };
 
-        let secret = read_config(|c| c.shared_secret.clone());
+        let secret = read_config(|c| c.shared_secret.clone().unwrap_or_default());
         sign_token(&mut token, &secret);
 
         Ok(vec![token])
@@ -632,7 +637,8 @@ pub async fn top_up_balance(amount: u64, payment: PaymentType) -> TopUpBalanceRe
             // If used_bytes is 0, give them extension as if they used 1MB (min charge)
             let used_for_calc = state.used_bytes.max(1024 * 1024);
             let used_gib = used_for_calc as f64 / GIB as f64;
-            let monthly_cost = used_gib * config.rate_per_gb_per_month as f64;
+            let rate = config.rate_per_gb_per_month.unwrap_or(100_000_000);
+            let monthly_cost = used_gib * rate as f64;
 
             let extension_months = amount as f64 / monthly_cost.max(1.0);
             let extension_ns = (extension_months * MONTH_NS as f64) as u64;

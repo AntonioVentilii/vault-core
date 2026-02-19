@@ -32,12 +32,7 @@ type DownloadToken = record {
 };
 type FileId = record { id : blob; owner : principal };
 type GetChunkResult = variant { Ok : blob; Err : BucketError };
-type InitArgs = record {
-	ckusdc_ledger : principal;
-	icp_ledger : principal;
-	admins : vec principal;
-	shared_secret : blob
-};
+type InitArgs = record { admins : vec principal; shared_secret : blob };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
 	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
@@ -48,8 +43,6 @@ type PaymentType = variant {
 };
 type PutChunkResult = variant { Ok : nat32; Err : BucketError };
 type UpgradeArgs = record {
-	ckusdc_ledger : opt principal;
-	icp_ledger : opt principal;
 	admins : opt vec principal;
 	shared_secret : opt blob
 };

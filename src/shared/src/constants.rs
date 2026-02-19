@@ -7,3 +7,6 @@ pub const MINUTE_NS: u64 = 60 * SECOND_NS;
 pub const HOUR_NS: u64 = 60 * MINUTE_NS;
 pub const DAY_NS: u64 = 24 * HOUR_NS;
 pub const MONTH_NS: u64 = 30 * DAY_NS;
+
+pub const ICP_LEDGER: &str = "ryjl3-tyaaa-aaaaa-aaaba-cai";
+pub const CKUSDC_LEDGER: &str = "yfumr-cyaaa-aaaar-qaela-cai";

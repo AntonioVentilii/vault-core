@@ -137,9 +137,9 @@ pub fn mutate_config(f: impl FnOnce(&mut Config)) {
 }
 
 pub fn icp_ledger() -> Principal {
-    read_config(|config| config.icp_ledger.expect("icp_ledger is not set"))
+    Principal::from_text(shared::constants::ICP_LEDGER).expect("invalid ICP_LEDGER")
 }
 
 pub fn ckusdc_ledger() -> Principal {
-    read_config(|config| config.ckusdc_ledger.expect("ckusdc_ledger is not set"))
+    Principal::from_text(shared::constants::CKUSDC_LEDGER).expect("invalid CKUSDC_LEDGER")
 }
