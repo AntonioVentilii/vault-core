@@ -2,15 +2,15 @@ type Account = record { owner : principal; subaccount : opt blob };
 type AdminWithdrawResult = variant { Ok; Err : BucketError };
 type Args = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type BucketError = variant {
-  ChunkNotFound;
-  WrongBucket;
-  PaymentFailed : text;
-  ChunkNotAllowed : nat32;
-  InvalidSignature;
-  TokenExpired;
-  Unauthorized;
-  Other : text;
-  InvalidFileId;
+	ChunkNotFound;
+	WrongBucket;
+	PaymentFailed : text;
+	ChunkNotAllowed : nat32;
+	InvalidSignature;
+	TokenExpired;
+	Unauthorized;
+	Other : text;
+	InvalidFileId
 };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
 type DeleteFileResult = variant { Ok; Err : BucketError };
@@ -19,30 +19,30 @@ type GetChunkResult = variant { Ok : blob; Err : BucketError };
 type InitArgs = record { ckusdc_ledger : principal; icp_ledger : principal };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
-  PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
-  AttachedCycles;
-  CallerPaysIcrc2Cycles;
-  CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
-  PatronPaysIcrc2Cycles : Account;
+	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
+	AttachedCycles;
+	CallerPaysIcrc2Cycles;
+	CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
+	PatronPaysIcrc2Cycles : Account
 };
 type PutChunkResult = variant { Ok : nat32; Err : BucketError };
 type UpgradeArgs = record {
-  ckusdc_ledger : opt principal;
-  icp_ledger : opt principal;
+	ckusdc_ledger : opt principal;
+	icp_ledger : opt principal
 };
 type UploadToken = record {
-  sig : blob;
-  bucket_id : principal;
-  upload_id : blob;
-  directory_id : principal;
-  expires_at : nat64;
-  allowed_chunks : vec nat32;
-  file_id : FileId;
+	sig : blob;
+	bucket_id : principal;
+	upload_id : blob;
+	directory_id : principal;
+	expires_at : nat64;
+	allowed_chunks : vec nat32;
+	file_id : FileId
 };
 service : (Args) -> {
-  admin_withdraw : (principal, nat64, principal) -> (AdminWithdrawResult);
-  delete_file : (FileId) -> (DeleteFileResult);
-  get_chunk : (FileId, nat32) -> (GetChunkResult) query;
-  put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (PutChunkResult);
-  stat : () -> (text) query;
+	admin_withdraw : (principal, nat64, principal) -> (AdminWithdrawResult);
+	delete_file : (FileId) -> (DeleteFileResult);
+	get_chunk : (FileId, nat32) -> (GetChunkResult) query;
+	put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (PutChunkResult);
+	stat : () -> (text) query
 }

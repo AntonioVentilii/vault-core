@@ -107,3 +107,9 @@ flowchart LR
     B -- No --> A
     B -- Yes --> C --> D --> E
 ```
+
+## 🔷 Testing Infrastructure
+
+The system's integrity is verified via a centralized integration test suite using `PocketIC`. These tests simulate the entire sharded environment, including the inter-canister interactions between the Directory and Buckets, as well as the cycle-based billing logic.
+
+For technical details on the test architecture, see [HACKING.md](file:///Users/antonio.ventilii/projects/vault-core/HACKING.md).

@@ -83,6 +83,16 @@ To upload an actual file from your local filesystem:
 ./scripts/upload_file.sh <path_to_file>
 ```
 
+## 🔷 Testing
+
+Vault Core features a robust integration test suite powered by `pocket-ic`.
+
+```bash
+./scripts/test-integration.sh
+```
+
+For more details on the testing infrastructure, cross-canister flows, and how to contribute, see [HACKING.md](file:///Users/antonio.ventilii/projects/vault-core/HACKING.md).
+
 ## 🔷 Billing Model (PAPI)
 
 Vault Core uses the **PAPI** library to manage sustaining costs and service fees.

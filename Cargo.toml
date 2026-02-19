@@ -1,5 +1,5 @@
 [workspace]
-members = ["src/bucket", "src/directory", "src/shared"]
+members = ["src/bucket", "src/directory", "src/shared", "tests/it", "tests/it/proxy"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -8,10 +8,16 @@ ic-cdk = "0.13"
 ic-cdk-macros = "0.13"
 ic-stable-structures = "0.6"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 serde_bytes = "0.11"
+sha256 = "1.1"
 sha2 = "0.10"
 hmac = "0.12"
 shared = { path = "src/shared" }
 bucket = { path = "src/bucket" }
+directory = { path = "src/directory" }
 ic-papi-api = { git = "https://github.com/dfinity/papi", rev = "43c42fa2ea5f3d23d81360749deb58a29450c237" }
 ic-papi-guard = { git = "https://github.com/dfinity/papi", rev = "43c42fa2ea5f3d23d81360749deb58a29450c237" }
+pocket-ic = "6.0"
+hex = "0.4"
+icrc-ledger-types = "0.1"

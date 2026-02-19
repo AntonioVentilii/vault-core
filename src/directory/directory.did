@@ -6,104 +6,104 @@ type ChunkLocation = record { chunk_index : nat32; bucket : principal };
 type CommitUploadResult = variant { Ok : FileMeta; Err : DirectoryError };
 type DeleteFileResult = variant { Ok; Err : DirectoryError };
 type DirectoryError = variant {
-  UploadSessionNotFound;
-  PaymentFailed : text;
-  Unauthorized;
-  FileNotFound;
-  InvalidRequest : text;
-  NoWritableBuckets;
-  TransferFailed : text;
-  UploadIncomplete : record { expected : nat32; uploaded : nat32 };
-  QuotaExceeded : record { requested : nat64; used : nat64; quota : nat64 };
+	UploadSessionNotFound;
+	PaymentFailed : text;
+	Unauthorized;
+	FileNotFound;
+	InvalidRequest : text;
+	NoWritableBuckets;
+	TransferFailed : text;
+	UploadIncomplete : record { expected : nat32; uploaded : nat32 };
+	QuotaExceeded : record { requested : nat64; used : nat64; quota : nat64 }
 };
 type DownloadPlan = record {
-  chunk_count : nat32;
-  locations : vec ChunkLocation;
-  chunk_size : nat32;
+	chunk_count : nat32;
+	locations : vec ChunkLocation;
+	chunk_size : nat32
 };
 type FileId = record { id : blob; owner : principal };
 type FileMeta = record {
-  status : FileStatus;
-  sha256 : opt blob;
-  mime : text;
-  name : text;
-  size_bytes : nat64;
-  updated_at_ns : nat64;
-  created_at_ns : nat64;
-  chunk_count : nat32;
-  chunk_size : nat32;
-  file_id : FileId;
+	status : FileStatus;
+	sha256 : opt blob;
+	mime : text;
+	name : text;
+	size_bytes : nat64;
+	updated_at_ns : nat64;
+	created_at_ns : nat64;
+	chunk_count : nat32;
+	chunk_size : nat32;
+	file_id : FileId
 };
 type FileStatus = variant { Ready; Deleted; Pending };
 type GetDownloadPlanResult = variant {
-  Ok : DownloadPlan;
-  Err : DirectoryError;
+	Ok : DownloadPlan;
+	Err : DirectoryError
 };
 type GetFileMetaResult = variant { Ok : FileMeta; Err : DirectoryError };
 type GetUploadTokensResult = variant {
-  Ok : vec UploadToken;
-  Err : DirectoryError;
+	Ok : vec UploadToken;
+	Err : DirectoryError
 };
 type InitArgs = record {
-  rate_per_gb_per_month : nat64;
-  ckusdc_ledger : principal;
-  icp_ledger : principal;
+	rate_per_gb_per_month : nat64;
+	ckusdc_ledger : principal;
+	icp_ledger : principal
 };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
-  PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
-  AttachedCycles;
-  CallerPaysIcrc2Cycles;
-  CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
-  PatronPaysIcrc2Cycles : Account;
+	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
+	AttachedCycles;
+	CallerPaysIcrc2Cycles;
+	CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
+	PatronPaysIcrc2Cycles : Account
 };
 type StartUploadResult = variant { Ok : UploadSession; Err : DirectoryError };
 type TopUpBalanceResult = variant { Ok : nat64; Err : DirectoryError };
 type UpgradeArgs = record {
-  rate_per_gb_per_month : opt nat64;
-  ckusdc_ledger : opt principal;
-  icp_ledger : opt principal;
+	rate_per_gb_per_month : opt nat64;
+	ckusdc_ledger : opt principal;
+	icp_ledger : opt principal
 };
 type UploadSession = record {
-  expected_chunk_count : nat32;
-  mime : text;
-  name : text;
-  upload_id : blob;
-  expected_size_bytes : nat64;
-  chunk_size : nat32;
-  uploaded_chunks : vec nat32;
-  expires_at_ns : nat64;
-  file_id : FileId;
+	expected_chunk_count : nat32;
+	mime : text;
+	name : text;
+	upload_id : blob;
+	expected_size_bytes : nat64;
+	chunk_size : nat32;
+	uploaded_chunks : vec nat32;
+	expires_at_ns : nat64;
+	file_id : FileId
 };
 type UploadToken = record {
-  sig : blob;
-  bucket_id : principal;
-  upload_id : blob;
-  directory_id : principal;
-  expires_at : nat64;
-  allowed_chunks : vec nat32;
-  file_id : FileId;
+	sig : blob;
+	bucket_id : principal;
+	upload_id : blob;
+	directory_id : principal;
+	expires_at : nat64;
+	allowed_chunks : vec nat32;
+	file_id : FileId
 };
 type UserState = record {
-  used_bytes : nat64;
-  prepaid_balance : nat64;
-  quota_bytes : nat64;
-  expires_at_ns : opt nat64;
+	used_bytes : nat64;
+	prepaid_balance : nat64;
+	quota_bytes : nat64;
+	expires_at_ns : opt nat64
 };
 service : (Args) -> {
-  abort_upload : (blob) -> (AbortUploadResult);
-  admin_withdraw : (principal, nat64, principal) -> (AbortUploadResult);
-  commit_upload : (blob) -> (CommitUploadResult);
-  delete_file : (FileId) -> (DeleteFileResult);
-  garbage_collect : () -> ();
-  get_download_plan : (FileId) -> (GetDownloadPlanResult) query;
-  get_file_meta : (FileId) -> (GetFileMetaResult) query;
-  get_pricing : () -> (text) query;
-  get_upload_tokens : (blob, vec nat32) -> (GetUploadTokensResult);
-  get_usage : (opt principal) -> (UserState) query;
-  list_files : () -> (vec FileMeta) query;
-  provision_bucket : (principal) -> (DeleteFileResult);
-  report_chunk_uploaded : (blob, nat32) -> (DeleteFileResult);
-  start_upload : (text, text, nat64, opt PaymentType) -> (StartUploadResult);
-  top_up_balance : (nat64, PaymentType) -> (TopUpBalanceResult);
+	abort_upload : (blob) -> (AbortUploadResult);
+	admin_withdraw : (principal, nat64, principal) -> (AbortUploadResult);
+	commit_upload : (blob) -> (CommitUploadResult);
+	delete_file : (FileId) -> (DeleteFileResult);
+	garbage_collect : () -> ();
+	get_download_plan : (FileId) -> (GetDownloadPlanResult) query;
+	get_file_meta : (FileId) -> (GetFileMetaResult) query;
+	get_pricing : () -> (text) query;
+	get_upload_tokens : (blob, vec nat32) -> (GetUploadTokensResult);
+	get_usage : (opt principal) -> (UserState) query;
+	list_files : () -> (vec FileMeta) query;
+	provision_bucket : (principal) -> (DeleteFileResult);
+	report_chunk_uploaded : (blob, nat32) -> (DeleteFileResult);
+	start_upload : (text, text, nat64, opt PaymentType) -> (StartUploadResult);
+	top_up_balance : (nat64, PaymentType) -> (TopUpBalanceResult)
 }
