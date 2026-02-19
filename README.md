@@ -72,6 +72,14 @@ You can run a basic upload flow demo using the provided script:
 ./scripts/demo_upload.sh
 ```
 
+### Real File Upload
+
+To upload an actual file from your local filesystem:
+
+```bash
+./scripts/upload_file.sh <path_to_file>
+```
+
 ## 🔷 Billing Model (PAPI)
 
 Vault Core uses the **PAPI** library to manage sustaining costs and service fees.
