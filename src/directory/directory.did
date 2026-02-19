@@ -31,7 +31,7 @@ type FileMeta = record {
 	file_id : FileId
 };
 type FileStatus = variant { Ready; Deleted; Pending };
-type InitArgs = record { cycles_ledger : principal };
+type InitArgs = record { ckusdc_ledger : principal; icp_ledger : principal };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
 	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;

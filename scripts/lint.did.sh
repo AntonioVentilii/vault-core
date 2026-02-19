@@ -14,25 +14,34 @@ print_help() {
   exit 0
 }
 
-CANDID_FILE="$(jq -re '.canisters["icrc-factory"].candid' dfx.json)"
+mapfile -t CANDID_FILES < <(
+  jq -r '.canisters | to_entries[] | .value.candid? // empty' dfx.json
+)
+
+((${#CANDID_FILES[@]})) || {
+  echo "ERROR: No candid files found in dfx.json (.canisters[].candid)."
+  exit 1
+}
 
 has_result_types() {
-  : Determining whether the canister contains generic Result memory_types...
-  git grep -w Result "$CANDID_FILE" || git grep -E 'Result_[0-9]' "$CANDID_FILE"
+  local candid_file=$1
+  git grep -w Result -- "$candid_file" || git grep -E 'Result_[0-9]' -- "$candid_file"
 }
 
 check_result_types() {
-  : Checking whether the canister contains generic Result memory_types...
-  ! has_result_types || {
-    echo "ERROR: $CANDID_FILE should not contain Result or Result_[0-9]."
-    echo "       Please define custom Resut types with specific names."
+  local candid_file=$1
+  ! has_result_types "$candid_file" || {
+    echo "ERROR: $candid_file should not contain Result or Result_[0-9]."
+    echo "       Please define custom Result types with specific names."
     exit 1
   }
 }
 
 check() {
-  : Checking the candid file...
-  check_result_types
+  local f
+  for f in "${CANDID_FILES[@]}"; do
+    check_result_types "$f"
+  done
 }
 
 check
