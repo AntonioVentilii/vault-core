@@ -33,6 +33,17 @@ pub enum FileStatus {
     Deleted,
 }
 
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum FileRole {
+    Reader,
+    Writer,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct PricingConfig {
+    pub rate_per_gb_per_month: u64,
+}
+
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct FileMeta {
     pub file_id: FileId,
@@ -45,6 +56,8 @@ pub struct FileMeta {
     pub updated_at_ns: u64,
     pub status: FileStatus,
     pub sha256: Option<Vec<u8>>,
+    pub readers: Vec<UserId>,
+    pub writers: Vec<UserId>,
 }
 
 impl Storable for FileMeta {

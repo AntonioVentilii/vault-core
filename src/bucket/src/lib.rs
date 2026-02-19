@@ -6,7 +6,7 @@ pub mod payments;
 pub mod results;
 pub mod types;
 
-pub use api::{admin_withdraw, delete_file, get_chunk, put_chunk, stat};
+pub use api::{admin_set_read_only, admin_withdraw, delete_file, get_chunk, put_chunk, stat};
 use candid::Principal;
 use ic_cdk::export_candid;
 use ic_cdk_macros::{init, post_upgrade};
@@ -16,7 +16,10 @@ use shared::types::{FileId, UploadToken};
 use crate::{
     config::Args,
     memory::{mutate_config, set_config},
-    results::{AdminWithdrawResult, DeleteFileResult, GetChunkResult, PutChunkResult},
+    results::{
+        AdminSetReadOnlyResult, AdminWithdrawResult, DeleteFileResult, GetChunkResult,
+        PutChunkResult,
+    },
 };
 
 #[init]

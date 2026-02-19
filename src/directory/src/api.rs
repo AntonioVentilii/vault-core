@@ -4,7 +4,10 @@ use ic_cdk_macros::{query, update};
 use ic_papi_api::PaymentType;
 use shared::{
     auth::sign_token,
-    types::{DownloadPlan, FileId, FileMeta, FileStatus, UploadSession, UploadToken},
+    types::{
+        DownloadPlan, FileId, FileMeta, FileRole, FileStatus, PricingConfig, UploadSession,
+        UploadToken, UserId,
+    },
 };
 
 use crate::{
@@ -22,8 +25,23 @@ use crate::{
 const GIB: u64 = 1024 * 1024 * 1024;
 
 #[query]
-pub fn get_pricing() -> String {
-    "PAPI enabled. Pricing is determined by the PaymentGuard configuration.".to_string()
+pub fn get_pricing() -> PricingConfig {
+    crate::memory::read_config(|config| PricingConfig {
+        rate_per_gb_per_month: config.rate_per_gb_per_month,
+    })
+}
+
+#[query]
+pub fn estimate_upload_cost(size_bytes: u64, payment: PaymentType) -> u64 {
+    let start_fee = SignerMethods::StartUpload.fee(&payment);
+    let chunk_size = 1024 * 1024;
+    let chunk_count = if size_bytes == 0 {
+        0
+    } else {
+        (size_bytes.div_ceil(chunk_size)) as u32
+    };
+    let chunks_fee = chunk_count as u64 * SignerMethods::PutChunk.fee(&payment);
+    start_fee + chunks_fee
 }
 
 #[query]
@@ -42,7 +60,11 @@ pub fn list_files() -> Vec<FileMeta> {
     FILES.with(|f| {
         f.borrow()
             .iter()
-            .filter(|(fid, _)| fid.owner == caller)
+            .filter(|(fid, meta)| {
+                fid.owner == caller
+                    || meta.readers.contains(&caller)
+                    || meta.writers.contains(&caller)
+            })
             .map(|(_, meta)| meta)
             .collect()
     })
@@ -188,6 +210,8 @@ pub fn commit_upload(upload_id: Vec<u8>) -> CommitUploadResult {
             updated_at_ns: time(),
             status: FileStatus::Ready,
             sha256: None,
+            readers: vec![],
+            writers: vec![],
         };
 
         FILES.with(|f| f.borrow_mut().insert(session.file_id, meta.clone()));
@@ -219,11 +243,16 @@ pub fn abort_upload(upload_id: Vec<u8>) -> AbortUploadResult {
 #[query]
 pub fn get_file_meta(file_id: FileId) -> GetFileMetaResult {
     let result: Result<FileMeta, DirectoryError> = (|| {
-        if file_id.owner != ic_cdk::caller() {
+        let meta = FILES.with(|f| f.borrow().get(&file_id).ok_or(DirectoryError::FileNotFound))?;
+
+        if meta.file_id.owner != ic_cdk::caller()
+            && !meta.readers.contains(&ic_cdk::caller())
+            && !meta.writers.contains(&ic_cdk::caller())
+        {
             return Err(DirectoryError::Unauthorized);
         }
 
-        FILES.with(|f| f.borrow().get(&file_id).ok_or(DirectoryError::FileNotFound))
+        Ok(meta)
     })();
 
     result.into()
@@ -232,11 +261,14 @@ pub fn get_file_meta(file_id: FileId) -> GetFileMetaResult {
 #[query]
 pub fn get_download_plan(file_id: FileId) -> GetDownloadPlanResult {
     let result: Result<DownloadPlan, DirectoryError> = (|| {
-        if file_id.owner != ic_cdk::caller() {
+        let meta = FILES.with(|f| f.borrow().get(&file_id).ok_or(DirectoryError::FileNotFound))?;
+
+        if meta.file_id.owner != ic_cdk::caller()
+            && !meta.readers.contains(&ic_cdk::caller())
+            && !meta.writers.contains(&ic_cdk::caller())
+        {
             return Err(DirectoryError::Unauthorized);
         }
-
-        let meta = FILES.with(|f| f.borrow().get(&file_id).ok_or(DirectoryError::FileNotFound))?;
 
         let bucket_id = FILE_TO_BUCKET.with(|ftb| {
             ftb.borrow().get(&file_id).map(|b| b.0).ok_or({
@@ -265,13 +297,15 @@ pub fn get_download_plan(file_id: FileId) -> GetDownloadPlanResult {
 #[update]
 pub fn delete_file(file_id: FileId) -> DeleteFileResult {
     let result: Result<(), DirectoryError> = (|| {
-        if file_id.owner != ic_cdk::caller() {
+        let meta = FILES
+            .with(|f| f.borrow().get(&file_id))
+            .ok_or(DirectoryError::FileNotFound)?;
+
+        if meta.file_id.owner != ic_cdk::caller() && !meta.writers.contains(&ic_cdk::caller()) {
             return Err(DirectoryError::Unauthorized);
         }
 
-        let meta = FILES
-            .with(|f| f.borrow_mut().remove(&file_id))
-            .ok_or(DirectoryError::FileNotFound)?;
+        FILES.with(|f| f.borrow_mut().remove(&file_id));
 
         // Refund/Update usage
         let key = StorablePrincipal(file_id.owner);
@@ -289,8 +323,99 @@ pub fn delete_file(file_id: FileId) -> DeleteFileResult {
     result.into()
 }
 
+#[update]
+pub fn add_file_access(
+    file_id: FileId,
+    principal: UserId,
+    role: FileRole,
+) -> Result<(), DirectoryError> {
+    FILES.with(|f| {
+        let mut map = f.borrow_mut();
+        if let Some(mut meta) = map.get(&file_id) {
+            if meta.file_id.owner != ic_cdk::caller() {
+                return Err(DirectoryError::Unauthorized);
+            }
+            match role {
+                FileRole::Reader => {
+                    if !meta.readers.contains(&principal) {
+                        meta.readers.push(principal);
+                    }
+                }
+                FileRole::Writer => {
+                    if !meta.writers.contains(&principal) {
+                        meta.writers.push(principal);
+                    }
+                }
+            }
+            map.insert(file_id, meta);
+            Ok(())
+        } else {
+            Err(DirectoryError::FileNotFound)
+        }
+    })
+}
+
+#[update]
+pub fn remove_file_access(file_id: FileId, principal: UserId) -> Result<(), DirectoryError> {
+    FILES.with(|f| {
+        let mut map = f.borrow_mut();
+        if let Some(mut meta) = map.get(&file_id) {
+            if meta.file_id.owner != ic_cdk::caller() {
+                return Err(DirectoryError::Unauthorized);
+            }
+            meta.readers.retain(|r| r != &principal);
+            meta.writers.retain(|w| w != &principal);
+            map.insert(file_id, meta);
+            Ok(())
+        } else {
+            Err(DirectoryError::FileNotFound)
+        }
+    })
+}
+
 // Shared secret for v1 (to be improved in later phases)
 const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
+
+#[update]
+pub fn admin_set_pricing(rate: u64) -> Result<(), DirectoryError> {
+    // In a real system, check if caller is admin
+    crate::memory::mutate_config(|c| {
+        c.rate_per_gb_per_month = rate;
+    });
+    Ok(())
+}
+
+#[update]
+pub fn admin_set_quota(user: UserId, quota: u64) -> Result<(), DirectoryError> {
+    // In a real system, check if caller is admin
+    let key = StorablePrincipal(user);
+    USERS.with(|u| {
+        let mut map = u.borrow_mut();
+        let mut state = map.get(&key).unwrap_or_default();
+        state.quota_bytes = quota;
+        map.insert(key, state);
+    });
+    Ok(())
+}
+
+#[update]
+pub fn reap_expired_uploads() {
+    let now = ic_cdk::api::time();
+    let to_remove: Vec<Vec<u8>> = UPLOADS.with(|u| {
+        u.borrow()
+            .iter()
+            .filter(|(_, session)| session.expires_at_ns < now)
+            .map(|(id, _)| id)
+            .collect()
+    });
+
+    UPLOADS.with(|u| {
+        let mut map = u.borrow_mut();
+        for id in to_remove {
+            map.remove(&id);
+        }
+    });
+}
 
 #[update]
 pub fn provision_bucket(bucket_id: Principal) -> ProvisionBucketResult {

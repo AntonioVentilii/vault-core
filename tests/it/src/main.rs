@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod acl_tests;
+#[cfg(test)]
 mod bucket_tests;
 #[cfg(test)]
 mod directory_tests;

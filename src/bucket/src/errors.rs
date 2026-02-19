@@ -11,5 +11,6 @@ pub enum BucketError {
     InvalidFileId,
     ChunkNotFound,
     Unauthorized,
+    ReadOnly,
     Other(String),
 }

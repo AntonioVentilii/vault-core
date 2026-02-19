@@ -23,6 +23,7 @@ type DownloadPlan = record {
 };
 type FileId = record { id : blob; owner : principal };
 type FileMeta = record {
+	readers : vec principal;
 	status : FileStatus;
 	sha256 : opt blob;
 	mime : text;
@@ -31,9 +32,11 @@ type FileMeta = record {
 	updated_at_ns : nat64;
 	created_at_ns : nat64;
 	chunk_count : nat32;
+	writers : vec principal;
 	chunk_size : nat32;
 	file_id : FileId
 };
+type FileRole = variant { Reader; Writer };
 type FileStatus = variant { Ready; Deleted; Pending };
 type GetDownloadPlanResult = variant {
 	Ok : DownloadPlan;
@@ -57,6 +60,7 @@ type PaymentType = variant {
 	CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
 	PatronPaysIcrc2Cycles : Account
 };
+type PricingConfig = record { rate_per_gb_per_month : nat64 };
 type StartUploadResult = variant { Ok : UploadSession; Err : DirectoryError };
 type TopUpBalanceResult = variant { Ok : nat64; Err : DirectoryError };
 type UpgradeArgs = record {
@@ -92,17 +96,23 @@ type UserState = record {
 };
 service : (Args) -> {
 	abort_upload : (blob) -> (AbortUploadResult);
+	add_file_access : (FileId, principal, FileRole) -> (AbortUploadResult);
+	admin_set_pricing : (nat64) -> (AbortUploadResult);
+	admin_set_quota : (principal, nat64) -> (AbortUploadResult);
 	admin_withdraw : (principal, nat64, principal) -> (AbortUploadResult);
 	commit_upload : (blob) -> (CommitUploadResult);
 	delete_file : (FileId) -> (DeleteFileResult);
+	estimate_upload_cost : (nat64, PaymentType) -> (nat64) query;
 	garbage_collect : () -> ();
 	get_download_plan : (FileId) -> (GetDownloadPlanResult) query;
 	get_file_meta : (FileId) -> (GetFileMetaResult) query;
-	get_pricing : () -> (text) query;
+	get_pricing : () -> (PricingConfig) query;
 	get_upload_tokens : (blob, vec nat32) -> (GetUploadTokensResult);
 	get_usage : (opt principal) -> (UserState) query;
 	list_files : () -> (vec FileMeta) query;
 	provision_bucket : (principal) -> (DeleteFileResult);
+	reap_expired_uploads : () -> ();
+	remove_file_access : (FileId, principal) -> (DeleteFileResult);
 	report_chunk_uploaded : (blob, nat32) -> (DeleteFileResult);
 	start_upload : (text, text, nat64, opt PaymentType) -> (StartUploadResult);
 	top_up_balance : (nat64, PaymentType) -> (TopUpBalanceResult)

@@ -36,7 +36,6 @@ pub enum DeleteFileResult {
     Ok,
     Err(BucketError),
 }
-
 impl From<Result<(), BucketError>> for DeleteFileResult {
     fn from(value: Result<(), BucketError>) -> Self {
         match value {
@@ -45,17 +44,31 @@ impl From<Result<(), BucketError>> for DeleteFileResult {
         }
     }
 }
+
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub enum AdminWithdrawResult {
     Ok,
     Err(BucketError),
 }
-
 impl From<Result<(), BucketError>> for AdminWithdrawResult {
     fn from(value: Result<(), BucketError>) -> Self {
         match value {
             Ok(_) => AdminWithdrawResult::Ok,
             Err(e) => AdminWithdrawResult::Err(e),
+        }
+    }
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum AdminSetReadOnlyResult {
+    Ok,
+    Err(BucketError),
+}
+impl From<Result<(), BucketError>> for AdminSetReadOnlyResult {
+    fn from(value: Result<(), BucketError>) -> Self {
+        match value {
+            Ok(_) => AdminSetReadOnlyResult::Ok,
+            Err(e) => AdminSetReadOnlyResult::Err(e),
         }
     }
 }

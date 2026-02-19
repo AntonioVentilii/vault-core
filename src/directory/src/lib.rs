@@ -7,17 +7,20 @@ pub mod results;
 pub mod types;
 
 pub use api::{
-    admin_withdraw, commit_upload, delete_file, garbage_collect, get_pricing, get_upload_tokens,
-    get_usage, list_files, provision_bucket, report_chunk_uploaded, start_upload, top_up_balance,
+    add_file_access, admin_set_pricing, admin_set_quota, admin_withdraw, commit_upload,
+    delete_file, estimate_upload_cost, garbage_collect, get_pricing, get_upload_tokens, get_usage,
+    list_files, provision_bucket, reap_expired_uploads, remove_file_access, report_chunk_uploaded,
+    start_upload, top_up_balance,
 };
 use candid::Principal;
 use ic_cdk::{export_candid, spawn};
 use ic_cdk_macros::{heartbeat, init, post_upgrade};
 pub use ic_papi_api::PaymentType;
-use shared::types::{FileId, FileMeta};
+use shared::types::{FileId, FileMeta, FileRole, PricingConfig, UserId};
 
 use crate::{
     config::Args,
+    errors::DirectoryError,
     memory::{mutate_config, set_config},
     results::{
         AbortUploadResult, AdminWithdrawResult, CommitUploadResult, DeleteFileResult,

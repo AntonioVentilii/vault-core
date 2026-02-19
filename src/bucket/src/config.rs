@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub icp_ledger: Option<Principal>,
     pub ckusdc_ledger: Option<Principal>,
+    pub read_only: bool,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
@@ -30,6 +31,7 @@ impl From<InitArgs> for Config {
         Self {
             icp_ledger: Some(args.icp_ledger),
             ckusdc_ledger: Some(args.ckusdc_ledger),
+            read_only: false,
         }
     }
 }

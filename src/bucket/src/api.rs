@@ -12,6 +12,7 @@ use crate::{
     payments::{SignerMethods, PAYMENT_GUARD},
     results::{AdminWithdrawResult, DeleteFileResult, GetChunkResult, PutChunkResult},
     types::{ChunkKey, ChunkValue},
+    AdminSetReadOnlyResult,
 };
 
 const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
@@ -31,7 +32,12 @@ pub async fn put_chunk(
             .await
             .map_err(|e| BucketError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
 
-        // 2. Verify Token Signature
+        // 2. Check Read-Only Mode
+        if crate::memory::read_config(|c| c.read_only) {
+            return Err(BucketError::ReadOnly);
+        }
+
+        // 3. Verify Token Signature
         if !verify_token(&token, SHARED_SECRET) {
             return Err(BucketError::InvalidSignature);
         }
@@ -215,5 +221,18 @@ pub async fn admin_withdraw(ledger: Principal, amount: u64, to: Principal) -> Ad
         }
     }
     .await;
+    result.into()
+}
+
+#[update]
+pub fn admin_set_read_only(read_only: bool) -> AdminSetReadOnlyResult {
+    let result: Result<(), BucketError> = (|| {
+        if !ic_cdk::api::is_controller(&ic_cdk::caller()) {
+            return Err(BucketError::Unauthorized);
+        }
+        crate::memory::mutate_config(|c| c.read_only = read_only);
+        Ok(())
+    })();
+
     result.into()
 }

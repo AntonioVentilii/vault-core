@@ -5,11 +5,11 @@ This file tracks the missing features and improvements required to fully satisfy
 ## 🔍 Missing API Methods
 
 - [x] **Directory: `get_download_plan(file_id)`**
-- [ ] **Directory: `estimate_upload_cost(bytes)`**
+- [x] **Directory: `estimate_upload_cost(bytes)`**
 - [x] **Directory: `get_file_meta(file_id)`**
 - [x] **Directory: `abort_upload(upload_id)`**
-- [ ] **Directory: `get_pricing()`**
-  - Current version returns a string; needs structured JSON/Candid pricing info.
+- [x] **Directory: `get_pricing()`**
+  - Updated to return structured `PricingConfig`.
 
 ## ⚙️ Administrative & Management
 
@@ -17,13 +17,13 @@ This file tracks the missing features and improvements required to fully satisfy
 - [x] **Bucket: `admin_withdraw(ledger, amount, to)`**
 - [ ] **Directory: Pagination for `list_files`**
   - Implement `cursor` and `limit` support.
-- [ ] **Directory: `admin_set_pricing(...)`**
-- [ ] **Directory: `admin_set_quota(user, ...)`**
+- [x] **Directory: `admin_set_pricing(...)`**
+- [x] **Directory: `admin_set_quota(user, ...)`**
 - [x] **Directory: `garbage_collect()`**
   - Implemented for user account expiration.
-- [ ] **Directory: `reap_expired_uploads()`**
+- [x] **Directory: `reap_expired_uploads()`**
   - Specific cleanup for stale `Pending` uploads (sessions).
-- [ ] **Bucket: `set_read_only(bool)`**
+- [x] **Bucket: `set_read_only(bool)`**
   - Administrative control over bucket writability.
 
 ## 🛡️ Validation & Reliability
@@ -46,11 +46,11 @@ Tracked against [SECURITY_EVOLUTION.md](file:///Users/antonio.ventilii/projects/
 
 ### 🛡️ Phase 2: Principal-Based Sharing (ACL)
 
-- [ ] **Directory: ACL Schema Implementation**
+- [x] **Directory: ACL Schema Implementation**
   - Add `readers` and `writers` (BTreeSet<Principal>) to `FileMeta`.
-- [ ] **Directory: Access Control Logic**
+- [x] **Directory: Access Control Logic**
   - Update `get_file_meta`, `get_download_plan`, and `delete_file` to respect ACL.
-- [ ] **Directory: Management API**
+- [x] **Directory: Management API**
   - `add_file_access(file_id, principal, role)`
   - `remove_file_access(file_id, principal)`
 
