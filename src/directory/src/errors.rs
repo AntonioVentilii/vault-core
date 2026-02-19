@@ -19,4 +19,6 @@ pub enum DirectoryError {
     NoWritableBuckets,
     TransferFailed(String),
     InvalidRequest(String),
+    LinkNotFound,
+    LinkExpired,
 }

@@ -3,21 +3,24 @@ use ic_cdk::{api::time, id, println};
 use ic_cdk_macros::{query, update};
 use ic_papi_api::PaymentType;
 use shared::{
-    auth::sign_token,
+    auth::{sign_download_token, sign_token},
     types::{
-        DownloadPlan, FileId, FileMeta, FileRole, FileStatus, PricingConfig, UploadSession,
-        UploadToken, UserId,
+        BucketAuth, DownloadPlan, DownloadToken, FileId, FileMeta, FileRole, FileStatus, LinkInfo,
+        PricingConfig, UploadSession, UploadToken, UserId,
     },
 };
 
 use crate::{
     errors::DirectoryError,
-    memory::{read_config, StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, UPLOADS, USERS},
+    memory::{
+        read_config, StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, LINKS, UPLOADS, USERS,
+    },
     payments::{SignerMethods, PAYMENT_GUARD},
     results::{
-        AbortUploadResult, AdminWithdrawResult, CommitUploadResult, DeleteFileResult,
-        GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult,
-        ReportChunkUploadedResult, StartUploadResult, TopUpBalanceResult,
+        AbortUploadResult, AdminWithdrawResult, CommitUploadResult, CreateShareLinkResult,
+        DeleteFileResult, GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult,
+        ProvisionBucketResult, ReportChunkUploadedResult, ResolveShareLinkResult,
+        StartUploadResult, TopUpBalanceResult,
     },
     types::{BucketInfo, UserState},
 };
@@ -261,7 +264,9 @@ pub fn get_file_meta(file_id: FileId) -> GetFileMetaResult {
 #[query]
 pub fn get_download_plan(file_id: FileId) -> GetDownloadPlanResult {
     let result: Result<DownloadPlan, DirectoryError> = (|| {
-        let meta = FILES.with(|f| f.borrow().get(&file_id).ok_or(DirectoryError::FileNotFound))?;
+        let meta = FILES
+            .with(|f| f.borrow().get(&file_id))
+            .ok_or(DirectoryError::FileNotFound)?;
 
         if meta.file_id.owner != ic_cdk::caller()
             && !meta.readers.contains(&ic_cdk::caller())
@@ -270,28 +275,121 @@ pub fn get_download_plan(file_id: FileId) -> GetDownloadPlanResult {
             return Err(DirectoryError::Unauthorized);
         }
 
-        let bucket_id = FILE_TO_BUCKET.with(|ftb| {
-            ftb.borrow().get(&file_id).map(|b| b.0).ok_or({
-                DirectoryError::InvalidRequest("No bucket assigned for this file".to_string())
-            })
-        })?;
-
-        let mut locations = Vec::with_capacity(meta.chunk_count as usize);
-        for i in 0..meta.chunk_count {
-            locations.push(shared::types::ChunkLocation {
-                chunk_index: i,
-                bucket: bucket_id,
-            });
-        }
-
-        Ok(shared::types::DownloadPlan {
-            chunk_count: meta.chunk_count,
-            chunk_size: meta.chunk_size,
-            locations,
-        })
+        generate_download_plan(file_id)
     })();
 
     result.into()
+}
+
+fn generate_download_plan(file_id: FileId) -> Result<DownloadPlan, DirectoryError> {
+    let meta = FILES
+        .with(|f| f.borrow().get(&file_id))
+        .ok_or(DirectoryError::FileNotFound)?;
+
+    let bucket_id = FILE_TO_BUCKET.with(|ftb| {
+        ftb.borrow()
+            .get(&file_id)
+            .map(|b| b.0)
+            .ok_or(DirectoryError::InvalidRequest(
+                "No bucket assigned for this file".to_string(),
+            ))
+    })?;
+
+    let chunk_count = meta.chunk_count;
+    let chunk_size = meta.chunk_size;
+    let mut locations = Vec::with_capacity(chunk_count as usize);
+
+    for i in 0..chunk_count {
+        locations.push(shared::types::ChunkLocation {
+            chunk_index: i,
+            bucket: bucket_id,
+        });
+    }
+
+    let expires_at = ic_cdk::api::time() + 3_600_000_000_000; // 1 hour
+    let mut auth = Vec::with_capacity(1);
+
+    let mut token = DownloadToken {
+        file_id: file_id.clone(),
+        bucket_id,
+        directory_id: ic_cdk::id(),
+        expires_at,
+        sig: vec![],
+    };
+    sign_download_token(&mut token, SHARED_SECRET);
+    auth.push(BucketAuth { bucket_id, token });
+
+    Ok(DownloadPlan {
+        chunk_count,
+        chunk_size,
+        locations,
+        auth,
+    })
+}
+
+#[update]
+pub async fn create_share_link(file_id: FileId, ttl_ns: u64) -> CreateShareLinkResult {
+    let caller = ic_cdk::caller();
+    let res: Result<Vec<u8>, DirectoryError> = async {
+        let meta = FILES
+            .with(|f| f.borrow().get(&file_id))
+            .ok_or(DirectoryError::FileNotFound)?;
+        if meta.file_id.owner != caller && !meta.writers.contains(&caller) {
+            return Err(DirectoryError::Unauthorized);
+        }
+
+        let (token,): (Vec<u8>,) = ic_cdk::api::management_canister::main::raw_rand()
+            .await
+            .map_err(|(_, msg)| DirectoryError::InvalidRequest(msg))?;
+
+        let expires_at = ic_cdk::api::time() + ttl_ns;
+        LINKS.with(|l| {
+            l.borrow_mut().insert(
+                token.clone(),
+                LinkInfo {
+                    file_id,
+                    expires_at,
+                },
+            )
+        });
+        Ok(token)
+    }
+    .await;
+    res.into()
+}
+
+#[update]
+pub fn revoke_share_link(token: Vec<u8>) -> Result<(), DirectoryError> {
+    let caller = ic_cdk::caller();
+    LINKS.with(|l| {
+        let mut map = l.borrow_mut();
+        if let Some(info) = map.get(&token) {
+            let meta = FILES
+                .with(|f| f.borrow().get(&info.file_id))
+                .ok_or(DirectoryError::FileNotFound)?;
+            if meta.file_id.owner != caller && !meta.writers.contains(&caller) {
+                return Err(DirectoryError::Unauthorized);
+            }
+            map.remove(&token);
+            Ok(())
+        } else {
+            Err(DirectoryError::LinkNotFound)
+        }
+    })
+}
+
+#[query]
+pub fn resolve_share_link(token: Vec<u8>) -> ResolveShareLinkResult {
+    let res: Result<DownloadPlan, DirectoryError> = (|| {
+        let info = LINKS
+            .with(|l| l.borrow().get(&token))
+            .ok_or(DirectoryError::LinkNotFound)?;
+        if info.expires_at < ic_cdk::api::time() {
+            return Err(DirectoryError::LinkExpired);
+        }
+        generate_download_plan(info.file_id)
+    })();
+    res.into()
 }
 
 #[update]

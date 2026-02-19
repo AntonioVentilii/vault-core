@@ -11,7 +11,7 @@ use candid::Principal;
 use ic_cdk::export_candid;
 use ic_cdk_macros::{init, post_upgrade};
 pub use ic_papi_api::PaymentType;
-use shared::types::{FileId, UploadToken};
+use shared::types::{DownloadToken, FileId, UploadToken};
 
 use crate::{
     config::Args,

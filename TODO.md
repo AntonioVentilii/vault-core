@@ -56,12 +56,12 @@ Tracked against [SECURITY_EVOLUTION.md](file:///Users/antonio.ventilii/projects/
 
 ### 🔗 Phase 3: Link Sharing (Capability-Based)
 
-- [ ] **Directory: Link Token Generation**
+- [x] **Directory: Link Token Generation**
   - Create secure, random 256-bit tokens for sharing.
-- [ ] **Directory: Link Management**
+- [x] **Directory: Link Management**
   - `create_share_link(file_id, ttl)`
   - `revoke_share_link(link_id)`
-- [ ] **Bucket: Capability Verification**
+- [x] **Bucket: Capability Verification**
   - Logic to verify signed capability tokens (Phase 3 Option B).
 
 ### 🕵️ Phase 4: Privacy & Public Access

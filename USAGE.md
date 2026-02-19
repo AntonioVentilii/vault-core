@@ -49,7 +49,46 @@ dfx canister call bucket put_chunk '(record { ... }, 0, blob "...", opt variant 
 
 _Note: The fee is 30,000 units ($0.03) per chunk._
 
-## 🔷 5. Top Up Account (Rent Model)
+## 🔷 5. Download a Chunk
+
+To download a file, you must first obtain a `DownloadPlan` which contains signed capability tokens for the specific buckets holding your file's data.
+
+```bash
+# Get the plan (as owner or authorized reader)
+dfx canister call directory get_download_plan '(record { id = blob "..."; owner = principal "..." })'
+
+# Call the bucket using the signed token from the plan
+dfx canister call bucket get_chunk '(record { sig = blob "..."; bucket_id = principal "..."; ... }, 0)'
+```
+
+## 🔷 6. Manage Permissions (ACL)
+
+Grant other users access to your files by assigning them a `Reader` or `Writer` role.
+
+```bash
+# Grant access
+dfx canister call directory add_file_access '(record { id = blob "..."; owner = principal "..." }, principal "...", variant { Reader })'
+
+# Revoke access
+dfx canister call directory remove_file_access '(record { id = blob "..."; owner = principal "..." }, principal "...")'
+```
+
+## 🔷 7. Link Sharing
+
+Create shareable links for anonymous access.
+
+```bash
+# Create a link (expires in 1 hour)
+dfx canister call directory create_share_link '(record { id = blob "..."; owner = principal "..." }, 3600000000000)'
+
+# Resolve a link (as anonymous user)
+dfx canister call directory resolve_share_link '(blob "...")'
+
+# Revoke a link
+dfx canister call directory revoke_share_link '(blob "...")'
+```
+
+## 🔷 8. Top Up Account (Rent Model)
 
 If your account is close to expiring, or you've been "frozen" due to zero balance, you can top up your expiration date.
 
@@ -75,6 +114,7 @@ dfx canister call directory admin_withdraw '(principal "ryjl3-tyaaa-aaaaa-aaaba-
 Finalize the upload in the Directory.
 
 ```bash
+dfx canister call directory stop_upload '(blob "...")' # Not implemented yet, use abort_upload
 dfx canister call directory commit_upload '(blob "...")'
 dfx canister call directory list_files '()'
 dfx canister call directory get_usage '(null)'

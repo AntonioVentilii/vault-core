@@ -14,7 +14,7 @@ The system currently enforces strict owner-only access.
 
 ---
 
-## 🔐 V2: Principal-Based Sharing (ACL)
+## 🔐 V2: Principal-Based Sharing (ACL) [Implemented]
 
 Expansion of file metadata to include an Access Control List (ACL).
 
@@ -44,7 +44,7 @@ else reject
 
 ---
 
-## 🔗 V3: "Google Drive Style" Link Sharing
+## 🔗 V3: "Google Drive Style" Link Sharing [Implemented]
 
 Transition from **Identity-based access** to **Capability-based access**.
 

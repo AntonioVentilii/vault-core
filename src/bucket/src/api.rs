@@ -2,8 +2,8 @@ use candid::Principal;
 use ic_cdk::{api::time, call, eprintln, id, query, spawn, update};
 use ic_papi_api::PaymentType;
 use shared::{
-    auth::verify_token,
-    types::{FileId, UploadToken},
+    auth::{verify_download_token, verify_token},
+    types::{DownloadToken, FileId, UploadToken},
 };
 
 use crate::{
@@ -108,8 +108,24 @@ pub async fn put_chunk(
 }
 
 #[query]
-pub fn get_chunk(file_id: FileId, chunk_index: u32) -> GetChunkResult {
+pub fn get_chunk(token: DownloadToken, chunk_index: u32) -> GetChunkResult {
     let result: Result<Vec<u8>, BucketError> = (|| {
+        // 1. Verify Token Signature
+        if !verify_download_token(&token, SHARED_SECRET) {
+            return Err(BucketError::InvalidSignature);
+        }
+
+        // 2. Verify Expiry
+        if token.expires_at < time() {
+            return Err(BucketError::TokenExpired);
+        }
+
+        // 3. Verify Bucket ID (token must be for THIS bucket)
+        if token.bucket_id != id() {
+            return Err(BucketError::WrongBucket);
+        }
+
+        let file_id = &token.file_id;
         let owner_bytes = file_id.owner.as_slice();
         let mut owner = [0u8; 29];
         owner[..owner_bytes.len()].copy_from_slice(owner_bytes);

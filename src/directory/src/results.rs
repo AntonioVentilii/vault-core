@@ -156,3 +156,31 @@ impl From<Result<(), DirectoryError>> for AdminWithdrawResult {
         }
     }
 }
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum CreateShareLinkResult {
+    Ok(Vec<u8>),
+    Err(DirectoryError),
+}
+impl From<Result<Vec<u8>, DirectoryError>> for CreateShareLinkResult {
+    fn from(value: Result<Vec<u8>, DirectoryError>) -> Self {
+        match value {
+            Ok(v) => CreateShareLinkResult::Ok(v),
+            Err(e) => CreateShareLinkResult::Err(e),
+        }
+    }
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum ResolveShareLinkResult {
+    Ok(DownloadPlan),
+    Err(DirectoryError),
+}
+impl From<Result<DownloadPlan, DirectoryError>> for ResolveShareLinkResult {
+    fn from(value: Result<DownloadPlan, DirectoryError>) -> Self {
+        match value {
+            Ok(v) => ResolveShareLinkResult::Ok(v),
+            Err(e) => ResolveShareLinkResult::Err(e),
+        }
+    }
+}

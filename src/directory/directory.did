@@ -1,15 +1,19 @@
 type AbortUploadResult = variant { Ok; Err : DirectoryError };
 type Account = record { owner : principal; subaccount : opt blob };
 type Args = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
+type BucketAuth = record { token : DownloadToken; bucket_id : principal };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
 type ChunkLocation = record { chunk_index : nat32; bucket : principal };
 type CommitUploadResult = variant { Ok : FileMeta; Err : DirectoryError };
+type CreateShareLinkResult = variant { Ok : blob; Err : DirectoryError };
 type DeleteFileResult = variant { Ok; Err : DirectoryError };
 type DirectoryError = variant {
 	UploadSessionNotFound;
 	PaymentFailed : text;
 	Unauthorized;
+	LinkNotFound;
 	FileNotFound;
+	LinkExpired;
 	InvalidRequest : text;
 	NoWritableBuckets;
 	TransferFailed : text;
@@ -17,9 +21,17 @@ type DirectoryError = variant {
 	QuotaExceeded : record { requested : nat64; used : nat64; quota : nat64 }
 };
 type DownloadPlan = record {
+	auth : vec BucketAuth;
 	chunk_count : nat32;
 	locations : vec ChunkLocation;
 	chunk_size : nat32
+};
+type DownloadToken = record {
+	sig : blob;
+	bucket_id : principal;
+	directory_id : principal;
+	expires_at : nat64;
+	file_id : FileId
 };
 type FileId = record { id : blob; owner : principal };
 type FileMeta = record {
@@ -101,6 +113,7 @@ service : (Args) -> {
 	admin_set_quota : (principal, nat64) -> (AbortUploadResult);
 	admin_withdraw : (principal, nat64, principal) -> (AbortUploadResult);
 	commit_upload : (blob) -> (CommitUploadResult);
+	create_share_link : (FileId, nat64) -> (CreateShareLinkResult);
 	delete_file : (FileId) -> (DeleteFileResult);
 	estimate_upload_cost : (nat64, PaymentType) -> (nat64) query;
 	garbage_collect : () -> ();
@@ -114,6 +127,8 @@ service : (Args) -> {
 	reap_expired_uploads : () -> ();
 	remove_file_access : (FileId, principal) -> (DeleteFileResult);
 	report_chunk_uploaded : (blob, nat32) -> (DeleteFileResult);
+	resolve_share_link : (blob) -> (GetDownloadPlanResult) query;
+	revoke_share_link : (blob) -> (DeleteFileResult);
 	start_upload : (text, text, nat64, opt PaymentType) -> (StartUploadResult);
 	top_up_balance : (nat64, PaymentType) -> (TopUpBalanceResult)
 }

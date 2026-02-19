@@ -6,6 +6,8 @@ mod bucket_tests;
 mod directory_tests;
 #[cfg(test)]
 mod flow_tests;
+#[cfg(test)]
+mod link_tests;
 mod util;
 
 fn main() {

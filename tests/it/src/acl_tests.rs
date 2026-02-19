@@ -3,7 +3,7 @@ use directory::results::{
     CommitUploadResult, DeleteFileResult, GetFileMetaResult, StartUploadResult,
 };
 use ic_papi_api::PaymentType;
-use shared::types::{FileId, FileMeta, FileRole, FileStatus, UserId};
+use shared::types::FileRole;
 
 use crate::util::{PicCanisterTrait, TestSetup};
 

@@ -16,6 +16,13 @@ type BucketError = variant {
 };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
 type DeleteFileResult = variant { Ok; Err : BucketError };
+type DownloadToken = record {
+	sig : blob;
+	bucket_id : principal;
+	directory_id : principal;
+	expires_at : nat64;
+	file_id : FileId
+};
 type FileId = record { id : blob; owner : principal };
 type GetChunkResult = variant { Ok : blob; Err : BucketError };
 type InitArgs = record { ckusdc_ledger : principal; icp_ledger : principal };
@@ -45,7 +52,7 @@ service : (Args) -> {
 	admin_set_read_only : (bool) -> (AdminSetReadOnlyResult);
 	admin_withdraw : (principal, nat64, principal) -> (AdminWithdrawResult);
 	delete_file : (FileId) -> (DeleteFileResult);
-	get_chunk : (FileId, nat32) -> (GetChunkResult) query;
+	get_chunk : (DownloadToken, nat32) -> (GetChunkResult) query;
 	put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (PutChunkResult);
 	stat : () -> (text) query
 }

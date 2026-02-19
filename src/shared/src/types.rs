@@ -102,6 +102,40 @@ pub struct DownloadPlan {
     pub chunk_count: u32,
     pub chunk_size: u32,
     pub locations: Vec<ChunkLocation>,
+    pub auth: Vec<BucketAuth>,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct DownloadToken {
+    pub file_id: FileId,
+    pub bucket_id: BucketId,
+    pub directory_id: Principal,
+    pub expires_at: u64,
+    pub sig: Vec<u8>,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct BucketAuth {
+    pub bucket_id: BucketId,
+    pub token: DownloadToken,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct LinkInfo {
+    pub file_id: FileId,
+    pub expires_at: u64,
+}
+
+impl Storable for LinkInfo {
+    const BOUND: Bound = Bound::Unbounded;
+
+    fn to_bytes(&self) -> Cow<'_, [u8]> {
+        Cow::Owned(encode_one(self).expect("failed to encode LinkInfo"))
+    }
+
+    fn from_bytes(bytes: Cow<'_, [u8]>) -> Self {
+        decode_one(&bytes).expect("failed to decode LinkInfo")
+    }
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]

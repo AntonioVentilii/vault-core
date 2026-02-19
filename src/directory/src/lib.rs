@@ -8,9 +8,10 @@ pub mod types;
 
 pub use api::{
     add_file_access, admin_set_pricing, admin_set_quota, admin_withdraw, commit_upload,
-    delete_file, estimate_upload_cost, garbage_collect, get_pricing, get_upload_tokens, get_usage,
-    list_files, provision_bucket, reap_expired_uploads, remove_file_access, report_chunk_uploaded,
-    start_upload, top_up_balance,
+    create_share_link, delete_file, estimate_upload_cost, garbage_collect, get_pricing,
+    get_upload_tokens, get_usage, list_files, provision_bucket, reap_expired_uploads,
+    remove_file_access, report_chunk_uploaded, resolve_share_link, revoke_share_link, start_upload,
+    top_up_balance,
 };
 use candid::Principal;
 use ic_cdk::{export_candid, spawn};
@@ -23,9 +24,10 @@ use crate::{
     errors::DirectoryError,
     memory::{mutate_config, set_config},
     results::{
-        AbortUploadResult, AdminWithdrawResult, CommitUploadResult, DeleteFileResult,
-        GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult,
-        ReportChunkUploadedResult, StartUploadResult, TopUpBalanceResult,
+        AbortUploadResult, AdminWithdrawResult, CommitUploadResult, CreateShareLinkResult,
+        DeleteFileResult, GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult,
+        ProvisionBucketResult, ReportChunkUploadedResult, ResolveShareLinkResult,
+        StartUploadResult, TopUpBalanceResult,
     },
     types::UserState,
 };

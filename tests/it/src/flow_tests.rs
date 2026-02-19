@@ -1,7 +1,8 @@
 use bucket::results::{GetChunkResult, PutChunkResult};
 use candid::Principal;
 use directory::results::{
-    CommitUploadResult, GetUploadTokensResult, ReportChunkUploadedResult, StartUploadResult,
+    CommitUploadResult, GetDownloadPlanResult, GetUploadTokensResult, ReportChunkUploadedResult,
+    StartUploadResult,
 };
 use ic_papi_api::PaymentType;
 
@@ -87,14 +88,33 @@ fn test_full_upload_flow() {
     };
     assert_eq!(meta.name, "flow.txt");
 
-    // 6. Download Chunk from Bucket
-    let chunk_res: GetChunkResult = setup
-        .bucket
+    // 6. Get Download Plan
+    let plan_res: GetDownloadPlanResult = setup
+        .directory
         .update(
             setup.proxy.canister_id,
-            "get_chunk",
-            (meta.file_id.clone(), 0u32),
+            "get_download_plan",
+            (meta.file_id.clone(),),
         )
+        .unwrap();
+    let plan = match plan_res {
+        GetDownloadPlanResult::Ok(p) => p,
+        GetDownloadPlanResult::Err(e) => panic!("Get download plan failed: {:?}", e),
+    };
+
+    // Find token for the bucket
+    let bucket_token = plan
+        .auth
+        .iter()
+        .find(|a| a.bucket_id == setup.bucket.canister_id)
+        .expect("No auth for bucket")
+        .token
+        .clone();
+
+    // 7. Download Chunk from Bucket
+    let chunk_res: GetChunkResult = setup
+        .bucket
+        .query(caller, "get_chunk", (bucket_token, 0u32))
         .unwrap();
     match chunk_res {
         GetChunkResult::Ok(data) => assert_eq!(data, chunk_data),

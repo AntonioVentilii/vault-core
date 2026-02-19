@@ -6,7 +6,7 @@ use ic_stable_structures::{
     storable::Bound,
     Cell as StableCell, DefaultMemoryImpl, StableBTreeMap, Storable,
 };
-use shared::types::{FileId, FileMeta, UploadSession};
+use shared::types::{FileId, FileMeta, LinkInfo, UploadSession};
 
 use crate::{
     config::Config,
@@ -97,6 +97,10 @@ thread_local! {
 
     pub static CONFIG: RefCell<ConfigCell> = RefCell::new(
         StableCell::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(5))), None).expect("failed to init ConfigCell")
+    );
+
+    pub static LINKS: RefCell<StableBTreeMap<Vec<u8>, LinkInfo, Memory>> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(6))))
     );
 }
 
