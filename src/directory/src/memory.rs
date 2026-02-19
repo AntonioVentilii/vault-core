@@ -110,8 +110,7 @@ pub fn read_config<R>(f: impl FnOnce(&Config) -> R) -> R {
     })
 }
 
-pub fn set_config(arg: crate::config::InitArgs) {
-    let config = Config::from(arg);
+pub fn set_config(config: Config) {
     CONFIG.with(|cell| {
         cell.borrow_mut()
             .set(Some(config))
@@ -119,10 +118,24 @@ pub fn set_config(arg: crate::config::InitArgs) {
     });
 }
 
+pub fn mutate_config(f: impl FnOnce(&mut Config)) {
+    CONFIG.with(|cell| {
+        let mut config = cell
+            .borrow()
+            .get()
+            .clone()
+            .expect("config is not initialized");
+        f(&mut config);
+        cell.borrow_mut()
+            .set(Some(config))
+            .expect("failed to set config");
+    });
+}
+
 pub fn icp_ledger() -> Principal {
-    read_config(|config| config.icp_ledger)
+    read_config(|config| config.icp_ledger.expect("icp_ledger is not set"))
 }
 
 pub fn ckusdc_ledger() -> Principal {
-    read_config(|config| config.ckusdc_ledger)
+    read_config(|config| config.ckusdc_ledger.expect("ckusdc_ledger is not set"))
 }

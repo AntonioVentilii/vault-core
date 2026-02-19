@@ -1,5 +1,6 @@
 type AbortUploadResult = variant { Ok; Err : DirectoryError };
 type Account = record { owner : principal; subaccount : opt blob };
+type Args = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
 type ChunkLocation = record { chunk_index : nat32; bucket : principal };
 type CommitUploadResult = variant { Ok : FileMeta; Err : DirectoryError };
@@ -53,6 +54,10 @@ type PaymentType = variant {
 	PatronPaysIcrc2Cycles : Account
 };
 type StartUploadResult = variant { Ok : UploadSession; Err : DirectoryError };
+type UpgradeArgs = record {
+	ckusdc_ledger : opt principal;
+	icp_ledger : opt principal
+};
 type UploadSession = record {
 	expected_chunk_count : nat32;
 	mime : text;
@@ -74,7 +79,7 @@ type UploadToken = record {
 	file_id : FileId
 };
 type UserState = record { used_bytes : nat64; quota_bytes : nat64 };
-service : (InitArgs) -> {
+service : (Args) -> {
 	abort_upload : (blob) -> (AbortUploadResult);
 	commit_upload : (blob) -> (CommitUploadResult);
 	delete_file : (FileId) -> (DeleteFileResult);
