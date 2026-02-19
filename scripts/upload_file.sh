@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Usage: ./scripts/upload_file.sh <file_path>
 FILE_PATH="$1"
@@ -162,7 +162,7 @@ for ((i = 0; i < EXPECTED_CHUNKS; i++)); do
     }"
 
   # Read Chunk Data
-  CHUNK_FILE="/tmp/chunk_${UPLOAD_ID_HEX}_${i}.bin"
+  CHUNK_FILE="$OUT_DIR/chunk_${UPLOAD_ID_HEX}_${i}.bin"
   dd if="$FILE_PATH" of="$CHUNK_FILE" bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null
 
   CHUNK_HEX=$(xxd -p -c 100000000 "$CHUNK_FILE")
