@@ -66,7 +66,7 @@ name = "bucket"
 version = "0.0.1"
 dependencies = [
  "candid",
- "ic-cdk 0.13.6",
+ "ic-cdk",
  "ic-cdk-macros 0.13.2",
  "ic-papi-api",
  "ic-papi-guard",
@@ -166,7 +166,7 @@ version = "0.1.0"
 source = "git+https://github.com/dfinity/papi?rev=43c42fa2ea5f3d23d81360749deb58a29450c237#43c42fa2ea5f3d23d81360749deb58a29450c237"
 dependencies = [
  "candid",
- "ic-cdk 0.16.1",
+ "ic-cdk",
  "serde",
  "serde_bytes",
 ]
@@ -193,7 +193,7 @@ name = "directory"
 version = "0.0.1"
 dependencies = [
  "candid",
- "ic-cdk 0.13.6",
+ "ic-cdk",
  "ic-cdk-macros 0.13.2",
  "ic-papi-api",
  "ic-papi-guard",
@@ -237,20 +237,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest",
-]
-
-[[package]]
-name = "ic-cdk"
-version = "0.13.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36c4f1eea1e5ca52801fbc8363cfb67c3218741afaa63fc001b80a0d283d60ca"
-dependencies = [
- "candid",
- "ic-cdk-executor",
- "ic-cdk-macros 0.13.2",
- "ic0",
- "serde",
- "serde_bytes",
 ]
 
 [[package]]
@@ -310,7 +296,7 @@ dependencies = [
  "candid",
  "crc32fast",
  "hex",
- "ic-cdk 0.16.1",
+ "ic-cdk",
  "serde",
  "serde_bytes",
  "sha2",
@@ -336,7 +322,7 @@ source = "git+https://github.com/dfinity/papi?rev=43c42fa2ea5f3d23d81360749deb58
 dependencies = [
  "candid",
  "cycles-ledger-client",
- "ic-cdk 0.16.1",
+ "ic-cdk",
  "ic-papi-api",
  "serde",
  "serde_bytes",
@@ -563,7 +549,7 @@ version = "0.0.1"
 dependencies = [
  "candid",
  "hmac",
- "ic-cdk 0.13.6",
+ "ic-cdk",
  "ic-stable-structures",
  "serde",
  "serde_bytes",
