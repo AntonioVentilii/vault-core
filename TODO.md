@@ -34,39 +34,31 @@ This file tracks the missing features and improvements required to fully satisfy
   - Logic to automatically create new buckets when capacity is reached.
 - [ ] **Directory: Integrity Checks**
   - Verify `sha256` hashes during `commit_upload`.
+- [ ] **Bucket: Idempotency**
+  - Ensure `put_chunk` is idempotent (return success if chunk already exists and matches).
 
-## 🛠️ Refinement
+## 🛡️ Security & Abuse Controls
 
-- [x] **Directory: `start_upload` field mapping**
-  - `name` and `mime` are now correctly stored in the `UploadSession`.
+- [ ] **Rate Limiting**
+  - Implement limits for `start_upload` (e.g., 5/min per user).
+  - Implement token issuance limits to prevent DDoS on buckets.
+- [ ] **DDoS Protection**
+  - Basic request throttling for expensive operations.
 
-## 🔐 Security Evolution
+## 🛠️ Refinement & Pagination
+
+- [ ] **Directory: Pagination for `list_files`**
+  - Implement `cursor` and `limit` support for efficient listing of large file sets.
+- [ ] **Directory/Bucket: Resumable Uploads**
+  - Improve session recovery and partial upload tracking.
+
+## 🕵️ Future Evolution: Privacy & Public Access
 
 Tracked against [SECURITY_EVOLUTION.md](file:///Users/antonio.ventilii/projects/vault-core/SECURITY_EVOLUTION.md).
-
-### 🛡️ Phase 2: Principal-Based Sharing (ACL)
-
-- [x] **Directory: ACL Schema Implementation**
-  - Add `readers` and `writers` (BTreeSet<Principal>) to `FileMeta`.
-- [x] **Directory: Access Control Logic**
-  - Update `get_file_meta`, `get_download_plan`, and `delete_file` to respect ACL.
-- [x] **Directory: Management API**
-  - `add_file_access(file_id, principal, role)`
-  - `remove_file_access(file_id, principal)`
-
-### 🔗 Phase 3: Link Sharing (Capability-Based)
-
-- [x] **Directory: Link Token Generation**
-  - Create secure, random 256-bit tokens for sharing.
-- [x] **Directory: Link Management**
-  - `create_share_link(file_id, ttl)`
-  - `revoke_share_link(link_id)`
-- [x] **Bucket: Capability Verification**
-  - Logic to verify signed capability tokens (Phase 3 Option B).
-
-### 🕵️ Phase 4: Privacy & Public Access
 
 - [ ] **Directory/Bucket: Public Visibility**
   - Support for `visibility: Public` to allow unauthenticated access.
 - [ ] **Client-Side Encryption Architecture**
   - Documentation/Tools for encrypting files before upload to ensure confidentiality.
+- [ ] **Asset Canister Integration**
+  - Compatibility with standard IC asset canister patterns for frontend integration.

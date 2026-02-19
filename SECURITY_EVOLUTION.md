@@ -1,107 +1,49 @@
-# 🔐 Security Evolution Roadmap
+# 🔐 Security Roadmap
 
-This document outlines the planned security evolution for Vault Core, moving from the initial V1 implementation to advanced sharing and privacy models.
-
----
-
-## 🧱 V1: Owner-Only Access (Current)
-
-The system currently enforces strict owner-only access.
-
-- **Access Rule**: `caller == file.owner`
-- **Security Logic**: Simple and safe starting point.
-- **Verification**: Cleanly enforced at the canister level using IC cryptographic identity.
+This document outlines the security architecture of Vault Core and the planned evolution towards advanced privacy models.
 
 ---
 
-## 🔐 V2: Principal-Based Sharing (ACL) [Implemented]
+## 🏗️ Current Security Architecture
 
-Expansion of file metadata to include an Access Control List (ACL).
+Vault Core implements a multi-layered security model for file access:
 
-### Proposed Schema
-
-```rust
-FileAccess {
-    owner: Principal,
-    readers: BTreeSet<Principal>,
-    writers: BTreeSet<Principal>,
-}
-```
-
-### Access Check Logic
-
-```rust
-if caller == owner
-   || readers.contains(caller)
-   || writers.contains(caller)
-{
-    allow
-}
-else reject
-```
-
-- **Why it’s secure**: Identity on IC is cryptographic; no session cookies or bearer tokens. The caller principal cannot be forged.
+1.  **Identity-Based Access (ACL)**:
+    - Identity on the IC is cryptographic and non-forgeable.
+    - Owners have full control.
+    - `Reader` and `Writer` roles are managed via Access Control Lists (ACLs).
+2.  **Capability-Based Access (Link Sharing)**:
+    - **Shareable Links**: 256-bit unguessable random tokens for public/semi-public sharing.
+    - **Signed Capability Tokens**: HMAC-SHA256 signed tokens containing `file_id`, `bucket_id`, and `expires_at`. Verified by Buckets in a decentralized manner.
 
 ---
 
-## 🔗 V3: "Google Drive Style" Link Sharing [Implemented]
+## 🚀 Future Security Evolution
 
-Transition from **Identity-based access** to **Capability-based access**.
+### 🕵️ Phase 1: Public Access & Asset Integration
 
-### Concept
+Support for `visibility: Public`. If a file is marked public, the Directory will issue capability tokens to anonymous callers without permission checks. This will also include better integration with standard IC asset canister patterns.
 
-A link contains a unique, unguessable token:
-`https://your-app/?file_id=abc123&token=xyz456`
+### 🧨 Phase 2: Client-Side Encryption (True Privacy)
 
-### Implementation Options
+**Access control ≠ confidentiality.** On the IC, node providers could technically inspect stable memory. For "Google Drive level" confidentiality, Vault Core will support **Client-Side Encryption**:
 
-#### Option A: Random Access Tokens (Simpler)
+- Files are encrypted in the browser/client BEFORE upload.
+- The canister stores only encrypted blobs.
+- Decryption keys are managed by the client or shared via out-of-band links.
+- Only the holder of the decryption key can view the content, even if they have a valid access token.
 
-1. Generate a 256-bit random token on link creation.
-2. Store `link_token → { file_id, permission, expires_at }` in the canister state.
-3. Verify token existence, file matching, and expiry upon access.
+### 🛡️ Phase 3: Advanced Abuse Controls
 
-#### Option B: Signed Capability Tokens (More Elegant)
-
-1. Generate a signed capability certificate containing `file_id`, `permission`, and `expiry`.
-2. Bucket verifies the signature without requiring a state lookup.
-3. High scalability.
+- **Fine-grained Rate Limiting**: Throttling based on user weight or history.
+- **Proof-of-Work (PoW) Gauging**: Requiring minor PoW for anonymous link resolution to prevent crawler abuse.
+- **DDoS Mitigation**: Advanced patterns for ensuring canister stability under high load.
 
 ---
 
-## 🧨 Security Requirements
+## 🎯 Security Best Practices
 
-To ensure link sharing is cryptographically safe:
-✔ Use 128–256 bits of randomness.
-✔ Support expiration and revocation.
-✔ Rate-limit access.
-✔ Avoid sequential IDs.
-
----
-
-## ⚠ Important: Privacy vs. Access Control
-
-**Access control ≠ confidentiality.**
-
-On the IC, node providers could technically inspect stable memory. For true "Google Drive level" confidentiality, **Client-side encryption before upload** is required.
-
-- Canister stores only encrypted bytes.
-- Only the link holder with the decryption key can view the content.
-
----
-
-## 🏗 Future Architecture
-
-The Directory canister will manage the resolution order:
-
-1. **Owner Check**: If `caller == owner` → allow.
-2. **ACL Check**: If `caller` in ACL → allow.
-3. **Link Check**: If valid link token → allow.
-4. **Visibility Check**: If file is `Public` → allow.
-5. **Else** → reject.
-
----
-
-## 🎯 Bonus: Public Files
-
-Support for `visibility: Private | Shared | Public`. If public, anyone can fetch without a permit or token.
+- ✔ Use 256 bits of randomness for sharing tokens.
+- ✔ Enforce short-lived capability tokens (5–15 minutes).
+- ✔ Always check expiration and revocation status.
+- ✔ Avoid sequential or guessable identifiers.
