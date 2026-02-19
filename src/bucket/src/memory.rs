@@ -11,6 +11,26 @@ use crate::{
     types::{ChunkKey, ChunkValue},
 };
 
+// Wrapper for Principal to make it Storable
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StorablePrincipal(pub Principal);
+
+impl Storable for StorablePrincipal {
+    const BOUND: ic_stable_structures::storable::Bound =
+        ic_stable_structures::storable::Bound::Bounded {
+            max_size: 29,
+            is_fixed_size: false,
+        };
+
+    fn to_bytes(&self) -> std::borrow::Cow<'_, [u8]> {
+        std::borrow::Cow::Borrowed(self.0.as_slice())
+    }
+
+    fn from_bytes(bytes: std::borrow::Cow<'_, [u8]>) -> Self {
+        Self(Principal::from_slice(&bytes))
+    }
+}
+
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 pub type ConfigCell = StableCell<Option<Config>, Memory>;
 

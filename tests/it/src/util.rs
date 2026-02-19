@@ -6,9 +6,10 @@ use std::{
 
 use bucket::config::{Args as BucketArgs, InitArgs as BucketInitArgs};
 use candid::{decode_one, CandidType, Deserialize, Principal};
-// Importing directory and bucket config for initialization
-use directory::config::{Args as DirectoryArgs, InitArgs as DirectoryInitArgs};
-use directory::results::ProvisionBucketResult;
+use directory::{
+    config::{Args as DirectoryArgs, InitArgs as DirectoryInitArgs},
+    results::ProvisionBucketResult,
+};
 use pocket_ic::{PocketIc, WasmResult};
 
 /// Common methods for interacting with a canister using `PocketIc`.

@@ -6,12 +6,17 @@ pub mod payments;
 pub mod results;
 pub mod types;
 
-pub use api::{admin_set_read_only, admin_withdraw, delete_file, get_chunk, put_chunk, stat};
+pub use api::{
+    admin_set_read_only, admin_withdraw, delete_file, get_chunk, get_status, put_chunk, stat,
+};
 use candid::Principal;
 use ic_cdk::export_candid;
 use ic_cdk_macros::{init, post_upgrade};
 pub use ic_papi_api::PaymentType;
-use shared::types::{DownloadToken, FileId, UploadToken};
+use shared::{
+    types::{DownloadToken, FileId, UploadToken},
+    CanisterStatus,
+};
 
 use crate::{
     config::Args,
@@ -36,11 +41,17 @@ fn post_upgrade(args: Option<Args>) {
         match args {
             Args::Upgrade(Some(upgrade_args)) => {
                 mutate_config(|config| {
+                    if let Some(admins) = upgrade_args.admins {
+                        config.admins = admins;
+                    }
                     if let Some(icp) = upgrade_args.icp_ledger {
                         config.icp_ledger = Some(icp);
                     }
                     if let Some(ckusdc) = upgrade_args.ckusdc_ledger {
                         config.ckusdc_ledger = Some(ckusdc);
+                    }
+                    if let Some(secret) = upgrade_args.shared_secret {
+                        config.shared_secret = secret;
                     }
                 });
             }

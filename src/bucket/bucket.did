@@ -4,6 +4,7 @@ type AdminWithdrawResult = variant { Ok; Err : BucketError };
 type Args = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type BucketError = variant {
 	ChunkNotFound;
+	AdminOnly;
 	WrongBucket;
 	PaymentFailed : text;
 	ChunkNotAllowed : nat32;
@@ -15,6 +16,12 @@ type BucketError = variant {
 	InvalidFileId
 };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
+type CanisterStatus = record {
+	cycles_balance : nat;
+	memory_usage_bytes : nat64;
+	version : text;
+	heap_memory_usage_bytes : nat64
+};
 type DeleteFileResult = variant { Ok; Err : BucketError };
 type DownloadToken = record {
 	sig : blob;
@@ -25,7 +32,12 @@ type DownloadToken = record {
 };
 type FileId = record { id : blob; owner : principal };
 type GetChunkResult = variant { Ok : blob; Err : BucketError };
-type InitArgs = record { ckusdc_ledger : principal; icp_ledger : principal };
+type InitArgs = record {
+	ckusdc_ledger : principal;
+	icp_ledger : principal;
+	admins : vec principal;
+	shared_secret : blob
+};
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
 	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
@@ -37,7 +49,9 @@ type PaymentType = variant {
 type PutChunkResult = variant { Ok : nat32; Err : BucketError };
 type UpgradeArgs = record {
 	ckusdc_ledger : opt principal;
-	icp_ledger : opt principal
+	icp_ledger : opt principal;
+	admins : opt vec principal;
+	shared_secret : opt blob
 };
 type UploadToken = record {
 	sig : blob;
@@ -53,6 +67,7 @@ service : (Args) -> {
 	admin_withdraw : (principal, nat64, principal) -> (AdminWithdrawResult);
 	delete_file : (FileId) -> (DeleteFileResult);
 	get_chunk : (DownloadToken, nat32) -> (GetChunkResult) query;
+	get_status : () -> (CanisterStatus) query;
 	put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (PutChunkResult);
 	stat : () -> (text) query
 }

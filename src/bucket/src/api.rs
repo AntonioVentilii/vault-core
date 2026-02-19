@@ -4,6 +4,7 @@ use ic_papi_api::PaymentType;
 use shared::{
     auth::{verify_download_token, verify_token},
     types::{DownloadToken, FileId, UploadToken},
+    CanisterStatus,
 };
 
 use crate::{
@@ -14,8 +15,6 @@ use crate::{
     types::{ChunkKey, ChunkValue},
     AdminSetReadOnlyResult,
 };
-
-const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
 
 #[update]
 pub async fn put_chunk(
@@ -38,7 +37,8 @@ pub async fn put_chunk(
         }
 
         // 3. Verify Token Signature
-        if !verify_token(&token, SHARED_SECRET) {
+        let secret = crate::memory::read_config(|c| c.shared_secret.clone());
+        if !verify_token(&token, &secret) {
             return Err(BucketError::InvalidSignature);
         }
 
@@ -111,7 +111,8 @@ pub async fn put_chunk(
 pub fn get_chunk(token: DownloadToken, chunk_index: u32) -> GetChunkResult {
     let result: Result<Vec<u8>, BucketError> = (|| {
         // 1. Verify Token Signature
-        if !verify_download_token(&token, SHARED_SECRET) {
+        let secret = crate::memory::read_config(|c| c.shared_secret.clone());
+        if !verify_download_token(&token, &secret) {
             return Err(BucketError::InvalidSignature);
         }
 
@@ -202,11 +203,18 @@ pub fn stat() -> String {
     format!("Chunks stored: {}", CHUNKS.with(|c| c.borrow().len()))
 }
 
+fn is_admin(caller: Principal) -> bool {
+    if ic_cdk::api::is_controller(&caller) {
+        return true;
+    }
+    crate::memory::read_config(|c| c.admins.contains(&caller))
+}
+
 #[update]
 pub async fn admin_withdraw(ledger: Principal, amount: u64, to: Principal) -> AdminWithdrawResult {
     let result: Result<(), BucketError> = async {
-        if !ic_cdk::api::is_controller(&ic_cdk::caller()) {
-            return Err(BucketError::Unauthorized);
+        if !is_admin(ic_cdk::caller()) {
+            return Err(BucketError::AdminOnly);
         }
 
         // ICRC-1 transfer call
@@ -243,12 +251,22 @@ pub async fn admin_withdraw(ledger: Principal, amount: u64, to: Principal) -> Ad
 #[update]
 pub fn admin_set_read_only(read_only: bool) -> AdminSetReadOnlyResult {
     let result: Result<(), BucketError> = (|| {
-        if !ic_cdk::api::is_controller(&ic_cdk::caller()) {
-            return Err(BucketError::Unauthorized);
+        if !is_admin(ic_cdk::caller()) {
+            return Err(BucketError::AdminOnly);
         }
         crate::memory::mutate_config(|c| c.read_only = read_only);
         Ok(())
     })();
 
     result.into()
+}
+
+#[query]
+pub fn get_status() -> CanisterStatus {
+    CanisterStatus {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        cycles_balance: ic_cdk::api::canister_balance128(),
+        memory_usage_bytes: ic_cdk::api::stable::stable64_size() * 64 * 1024,
+        heap_memory_usage_bytes: 0, // Simplified for now
+    }
 }

@@ -4,10 +4,12 @@ use ic_cdk_macros::{query, update};
 use ic_papi_api::PaymentType;
 use shared::{
     auth::{sign_download_token, sign_token},
+    constants::{GIB, HOUR_NS, MONTH_NS},
     types::{
         BucketAuth, DownloadPlan, DownloadToken, FileId, FileMeta, FileRole, FileStatus, LinkInfo,
         PricingConfig, UploadSession, UploadToken, UserId,
     },
+    CanisterStatus,
 };
 
 use crate::{
@@ -25,7 +27,7 @@ use crate::{
     types::{BucketInfo, UserState},
 };
 
-const GIB: u64 = 1024 * 1024 * 1024;
+// Local constants removed in favor of shared::constants
 
 #[query]
 pub fn get_pricing() -> PricingConfig {
@@ -106,7 +108,7 @@ pub async fn start_upload(
 
         if let Some(expires_at) = user_state.expires_at_ns {
             if expires_at < time() {
-                return Err(DirectoryError::Unauthorized); // Or a specific Expired error
+                return Err(DirectoryError::AccountExpired);
             }
         }
 
@@ -306,7 +308,7 @@ fn generate_download_plan(file_id: FileId) -> Result<DownloadPlan, DirectoryErro
         });
     }
 
-    let expires_at = ic_cdk::api::time() + 3_600_000_000_000; // 1 hour
+    let expires_at = ic_cdk::api::time() + HOUR_NS;
     let mut auth = Vec::with_capacity(1);
 
     let mut token = DownloadToken {
@@ -316,7 +318,8 @@ fn generate_download_plan(file_id: FileId) -> Result<DownloadPlan, DirectoryErro
         expires_at,
         sig: vec![],
     };
-    sign_download_token(&mut token, SHARED_SECRET);
+    let secret = read_config(|c| c.shared_secret.clone());
+    sign_download_token(&mut token, &secret);
     auth.push(BucketAuth { bucket_id, token });
 
     Ok(DownloadPlan {
@@ -471,12 +474,18 @@ pub fn remove_file_access(file_id: FileId, principal: UserId) -> Result<(), Dire
     })
 }
 
-// Shared secret for v1 (to be improved in later phases)
-const SHARED_SECRET: &[u8] = b"v1_shared_secret_for_vault_core";
+fn is_admin(caller: Principal) -> bool {
+    if ic_cdk::api::is_controller(&caller) {
+        return true;
+    }
+    read_config(|c| c.admins.contains(&caller))
+}
 
 #[update]
 pub fn admin_set_pricing(rate: u64) -> Result<(), DirectoryError> {
-    // In a real system, check if caller is admin
+    if !is_admin(ic_cdk::caller()) {
+        return Err(DirectoryError::AdminOnly);
+    }
     crate::memory::mutate_config(|c| {
         c.rate_per_gb_per_month = rate;
     });
@@ -485,7 +494,9 @@ pub fn admin_set_pricing(rate: u64) -> Result<(), DirectoryError> {
 
 #[update]
 pub fn admin_set_quota(user: UserId, quota: u64) -> Result<(), DirectoryError> {
-    // In a real system, check if caller is admin
+    if !is_admin(ic_cdk::caller()) {
+        return Err(DirectoryError::AdminOnly);
+    }
     let key = StorablePrincipal(user);
     USERS.with(|u| {
         let mut map = u.borrow_mut();
@@ -518,7 +529,9 @@ pub fn reap_expired_uploads() {
 #[update]
 pub fn provision_bucket(bucket_id: Principal) -> ProvisionBucketResult {
     let result: Result<(), DirectoryError> = {
-        // In a real system, only admins can provision buckets
+        if !is_admin(ic_cdk::caller()) {
+            return Err(DirectoryError::AdminOnly).into();
+        }
         BUCKETS.with(|b| {
             let mut map = b.borrow_mut();
             map.insert(
@@ -578,7 +591,8 @@ pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> GetUploadToken
             sig: vec![],
         };
 
-        sign_token(&mut token, SHARED_SECRET);
+        let secret = read_config(|c| c.shared_secret.clone());
+        sign_token(&mut token, &secret);
 
         Ok(vec![token])
     })();
@@ -586,8 +600,7 @@ pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> GetUploadToken
     result.into()
 }
 
-const MONTH_NS: u64 = 30 * 24 * 3600 * 1_000_000_000;
-const GIB_BYTES: u64 = 1024 * 1024 * 1024;
+// MONTH_NS and GIB_BYTES moved to shared::constants
 
 #[update]
 pub async fn top_up_balance(amount: u64, payment: PaymentType) -> TopUpBalanceResult {
@@ -611,14 +624,14 @@ pub async fn top_up_balance(amount: u64, payment: PaymentType) -> TopUpBalanceRe
             let mut map = u.borrow_mut();
             let mut state = map.get(&key).unwrap_or(UserState {
                 used_bytes: 0,
-                quota_bytes: 10 * GIB_BYTES,
+                quota_bytes: 10 * GIB,
                 expires_at_ns: None,
                 prepaid_balance: 0,
             });
 
             // If used_bytes is 0, give them extension as if they used 1MB (min charge)
             let used_for_calc = state.used_bytes.max(1024 * 1024);
-            let used_gib = used_for_calc as f64 / GIB_BYTES as f64;
+            let used_gib = used_for_calc as f64 / GIB as f64;
             let monthly_cost = used_gib * config.rate_per_gb_per_month as f64;
 
             let extension_months = amount as f64 / monthly_cost.max(1.0);
@@ -643,8 +656,8 @@ pub async fn top_up_balance(amount: u64, payment: PaymentType) -> TopUpBalanceRe
 #[update]
 pub async fn admin_withdraw(ledger: Principal, amount: u64, to: Principal) -> AdminWithdrawResult {
     let result: Result<(), DirectoryError> = async {
-        if !ic_cdk::api::is_controller(&ic_cdk::caller()) {
-            return Err(DirectoryError::Unauthorized);
+        if !is_admin(ic_cdk::caller()) {
+            return Err(DirectoryError::AdminOnly);
         }
 
         // ICRC-1 transfer call
@@ -707,5 +720,15 @@ pub async fn garbage_collect() {
         }
 
         USERS.with(|u| u.borrow_mut().remove(&StorablePrincipal(user_id)));
+    }
+}
+
+#[query]
+pub fn get_status() -> CanisterStatus {
+    CanisterStatus {
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        cycles_balance: ic_cdk::api::canister_balance128(),
+        memory_usage_bytes: ic_cdk::api::stable::stable64_size() * 64 * 1024,
+        heap_memory_usage_bytes: 0, // Simplified for now
     }
 }

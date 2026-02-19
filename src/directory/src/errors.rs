@@ -21,4 +21,6 @@ pub enum DirectoryError {
     InvalidRequest(String),
     LinkNotFound,
     LinkExpired,
+    AccountExpired,
+    AdminOnly,
 }

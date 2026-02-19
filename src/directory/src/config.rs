@@ -3,23 +3,29 @@ use serde::{Deserialize, Serialize};
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
+    pub admins: Vec<Principal>,
     pub icp_ledger: Option<Principal>,
     pub ckusdc_ledger: Option<Principal>,
     pub rate_per_gb_per_month: u64,
+    pub shared_secret: Vec<u8>,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct InitArgs {
+    pub admins: Vec<Principal>,
     pub icp_ledger: Principal,
     pub ckusdc_ledger: Principal,
     pub rate_per_gb_per_month: u64,
+    pub shared_secret: Vec<u8>,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct UpgradeArgs {
+    pub admins: Option<Vec<Principal>>,
     pub icp_ledger: Option<Principal>,
     pub ckusdc_ledger: Option<Principal>,
     pub rate_per_gb_per_month: Option<u64>,
+    pub shared_secret: Option<Vec<u8>>,
 }
 
 #[derive(CandidType, Deserialize)]
@@ -31,9 +37,11 @@ pub enum Args {
 impl From<InitArgs> for Config {
     fn from(args: InitArgs) -> Self {
         Self {
+            admins: args.admins,
             icp_ledger: Some(args.icp_ledger),
             ckusdc_ledger: Some(args.ckusdc_ledger),
             rate_per_gb_per_month: args.rate_per_gb_per_month,
+            shared_secret: args.shared_secret,
         }
     }
 }

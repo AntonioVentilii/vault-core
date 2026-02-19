@@ -3,12 +3,20 @@ type Account = record { owner : principal; subaccount : opt blob };
 type Args = variant { Upgrade : opt UpgradeArgs; Init : InitArgs };
 type BucketAuth = record { token : DownloadToken; bucket_id : principal };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
+type CanisterStatus = record {
+	cycles_balance : nat;
+	memory_usage_bytes : nat64;
+	version : text;
+	heap_memory_usage_bytes : nat64
+};
 type ChunkLocation = record { chunk_index : nat32; bucket : principal };
 type CommitUploadResult = variant { Ok : FileMeta; Err : DirectoryError };
 type CreateShareLinkResult = variant { Ok : blob; Err : DirectoryError };
 type DeleteFileResult = variant { Ok; Err : DirectoryError };
 type DirectoryError = variant {
+	AccountExpired;
 	UploadSessionNotFound;
+	AdminOnly;
 	PaymentFailed : text;
 	Unauthorized;
 	LinkNotFound;
@@ -62,7 +70,9 @@ type GetUploadTokensResult = variant {
 type InitArgs = record {
 	rate_per_gb_per_month : nat64;
 	ckusdc_ledger : principal;
-	icp_ledger : principal
+	icp_ledger : principal;
+	admins : vec principal;
+	shared_secret : blob
 };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
@@ -78,7 +88,9 @@ type TopUpBalanceResult = variant { Ok : nat64; Err : DirectoryError };
 type UpgradeArgs = record {
 	rate_per_gb_per_month : opt nat64;
 	ckusdc_ledger : opt principal;
-	icp_ledger : opt principal
+	icp_ledger : opt principal;
+	admins : opt vec principal;
+	shared_secret : opt blob
 };
 type UploadSession = record {
 	expected_chunk_count : nat32;
@@ -120,6 +132,7 @@ service : (Args) -> {
 	get_download_plan : (FileId) -> (GetDownloadPlanResult) query;
 	get_file_meta : (FileId) -> (GetFileMetaResult) query;
 	get_pricing : () -> (PricingConfig) query;
+	get_status : () -> (CanisterStatus) query;
 	get_upload_tokens : (blob, vec nat32) -> (GetUploadTokensResult);
 	get_usage : (opt principal) -> (UserState) query;
 	list_files : () -> (vec FileMeta) query;

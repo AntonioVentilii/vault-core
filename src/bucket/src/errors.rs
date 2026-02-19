@@ -12,5 +12,6 @@ pub enum BucketError {
     ChunkNotFound,
     Unauthorized,
     ReadOnly,
+    AdminOnly,
     Other(String),
 }

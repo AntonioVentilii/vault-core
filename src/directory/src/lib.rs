@@ -8,7 +8,7 @@ pub mod types;
 
 pub use api::{
     add_file_access, admin_set_pricing, admin_set_quota, admin_withdraw, commit_upload,
-    create_share_link, delete_file, estimate_upload_cost, garbage_collect, get_pricing,
+    create_share_link, delete_file, estimate_upload_cost, garbage_collect, get_pricing, get_status,
     get_upload_tokens, get_usage, list_files, provision_bucket, reap_expired_uploads,
     remove_file_access, report_chunk_uploaded, resolve_share_link, revoke_share_link, start_upload,
     top_up_balance,
@@ -17,7 +17,10 @@ use candid::Principal;
 use ic_cdk::{export_candid, spawn};
 use ic_cdk_macros::{heartbeat, init, post_upgrade};
 pub use ic_papi_api::PaymentType;
-use shared::types::{FileId, FileMeta, FileRole, PricingConfig, UserId};
+use shared::{
+    types::{FileId, FileMeta, FileRole, PricingConfig, UserId},
+    CanisterStatus,
+};
 
 use crate::{
     config::Args,
@@ -46,6 +49,9 @@ fn post_upgrade(args: Option<Args>) {
         match args {
             Args::Upgrade(Some(upgrade_args)) => {
                 mutate_config(|config| {
+                    if let Some(admins) = upgrade_args.admins {
+                        config.admins = admins;
+                    }
                     if let Some(icp) = upgrade_args.icp_ledger {
                         config.icp_ledger = Some(icp);
                     }
@@ -54,6 +60,9 @@ fn post_upgrade(args: Option<Args>) {
                     }
                     if let Some(rate) = upgrade_args.rate_per_gb_per_month {
                         config.rate_per_gb_per_month = rate;
+                    }
+                    if let Some(secret) = upgrade_args.shared_secret {
+                        config.shared_secret = secret;
                     }
                 });
             }
