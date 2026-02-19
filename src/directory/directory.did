@@ -1,6 +1,9 @@
+type AbortUploadResult = variant { Ok; Err : DirectoryError };
 type Account = record { owner : principal; subaccount : opt blob };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
 type ChunkLocation = record { chunk_index : nat32; bucket : principal };
+type CommitUploadResult = variant { Ok : FileMeta; Err : DirectoryError };
+type DeleteFileResult = variant { Ok; Err : DirectoryError };
 type DirectoryError = variant {
 	UploadSessionNotFound;
 	PaymentFailed : text;
@@ -31,6 +34,15 @@ type FileMeta = record {
 	file_id : FileId
 };
 type FileStatus = variant { Ready; Deleted; Pending };
+type GetDownloadPlanResult = variant {
+	Ok : DownloadPlan;
+	Err : DirectoryError
+};
+type GetFileMetaResult = variant { Ok : FileMeta; Err : DirectoryError };
+type GetUploadTokensResult = variant {
+	Ok : vec UploadToken;
+	Err : DirectoryError
+};
 type InitArgs = record { ckusdc_ledger : principal; icp_ledger : principal };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
@@ -40,11 +52,7 @@ type PaymentType = variant {
 	CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
 	PatronPaysIcrc2Cycles : Account
 };
-type Result = variant { Ok; Err : DirectoryError };
-type Result_1 = variant { Ok : FileMeta; Err : DirectoryError };
-type Result_2 = variant { Ok : DownloadPlan; Err : DirectoryError };
-type Result_3 = variant { Ok : vec UploadToken; Err : DirectoryError };
-type Result_4 = variant { Ok : UploadSession; Err : DirectoryError };
+type StartUploadResult = variant { Ok : UploadSession; Err : DirectoryError };
 type UploadSession = record {
 	expected_chunk_count : nat32;
 	mime : text;
@@ -67,16 +75,16 @@ type UploadToken = record {
 };
 type UserState = record { used_bytes : nat64; quota_bytes : nat64 };
 service : (InitArgs) -> {
-	abort_upload : (blob) -> (Result);
-	commit_upload : (blob) -> (Result_1);
-	delete_file : (FileId) -> (Result);
-	get_download_plan : (FileId) -> (Result_2) query;
-	get_file_meta : (FileId) -> (Result_1) query;
+	abort_upload : (blob) -> (AbortUploadResult);
+	commit_upload : (blob) -> (CommitUploadResult);
+	delete_file : (FileId) -> (DeleteFileResult);
+	get_download_plan : (FileId) -> (GetDownloadPlanResult) query;
+	get_file_meta : (FileId) -> (GetFileMetaResult) query;
 	get_pricing : () -> (text) query;
-	get_upload_tokens : (blob, vec nat32) -> (Result_3);
+	get_upload_tokens : (blob, vec nat32) -> (GetUploadTokensResult);
 	get_usage : (opt principal) -> (UserState) query;
 	list_files : () -> (vec FileMeta) query;
-	provision_bucket : (principal) -> (Result);
-	report_chunk_uploaded : (blob, nat32) -> (Result);
-	start_upload : (text, text, nat64, opt PaymentType) -> (Result_4)
+	provision_bucket : (principal) -> (DeleteFileResult);
+	report_chunk_uploaded : (blob, nat32) -> (DeleteFileResult);
+	start_upload : (text, text, nat64, opt PaymentType) -> (StartUploadResult)
 }

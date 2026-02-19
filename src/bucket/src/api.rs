@@ -126,7 +126,7 @@ pub fn get_chunk(file_id: FileId, chunk_index: u32) -> GetChunkResult {
             c.borrow()
                 .get(&key)
                 .map(|v| v.0.clone())
-                .ok_or_else(|| BucketError::ChunkNotFound)
+                .ok_or(BucketError::ChunkNotFound)
         })
     })();
 

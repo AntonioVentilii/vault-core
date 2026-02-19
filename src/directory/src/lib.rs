@@ -3,6 +3,7 @@ pub mod config;
 pub mod errors;
 pub mod memory;
 pub mod payments;
+pub mod results;
 pub mod types;
 
 pub use api::{
@@ -13,9 +14,18 @@ use candid::Principal;
 use ic_cdk::export_candid;
 use ic_cdk_macros::{init, post_upgrade};
 pub use ic_papi_api::PaymentType;
-use shared::types::{FileId, FileMeta, UploadSession, UploadToken};
+use shared::types::{FileId, FileMeta};
 
-use crate::{config::InitArgs, errors::DirectoryError, memory::set_config, types::UserState};
+use crate::{
+    config::InitArgs,
+    memory::set_config,
+    results::{
+        AbortUploadResult, CommitUploadResult, DeleteFileResult, GetDownloadPlanResult,
+        GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult, ReportChunkUploadedResult,
+        StartUploadResult,
+    },
+    types::UserState,
+};
 
 #[init]
 fn init(args: InitArgs) {

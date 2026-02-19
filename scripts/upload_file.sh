@@ -18,7 +18,7 @@ fi
 hex_to_candid_blob() {
   local hex="$1"
   # turns "a1b2" into "\a1\b2"
-  echo "blob \"$(echo "$hex" | sed 's/../\\&/g')\""
+  echo "blob \"${hex//??/\\&}\""
 }
 
 # 1. Preparation
@@ -163,7 +163,7 @@ for ((i = 0; i < EXPECTED_CHUNKS; i++)); do
 
   # Read Chunk Data
   CHUNK_FILE="$OUT_DIR/chunk_${UPLOAD_ID_HEX}_${i}.bin"
-  dd if="$FILE_PATH" of="$CHUNK_FILE" bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null
+  dd if="$FILE_PATH" of="$CHUNK_FILE" bs="$CHUNK_SIZE" skip=$i count=1 2>/dev/null
 
   CHUNK_HEX=$(xxd -p -c 100000000 "$CHUNK_FILE")
   CHUNK_BLOB=$(hex_to_candid_blob "$CHUNK_HEX")

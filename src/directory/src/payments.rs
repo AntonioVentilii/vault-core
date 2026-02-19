@@ -19,8 +19,8 @@ impl SignerMethods {
         // ckUSDC and most others have 6 decimals (10^6)
         // We check if the payment is targeting the ICP ledger.
         let is_icp = match payment {
-            PaymentType::CallerPaysIcrc2Tokens(ledger) => (*ledger).ledger == icp_ledger(),
-            PaymentType::PatronPaysIcrc2Tokens(ledger) => (*ledger).ledger == icp_ledger(),
+            PaymentType::CallerPaysIcrc2Tokens(ledger) => (ledger).ledger == icp_ledger(),
+            PaymentType::PatronPaysIcrc2Tokens(ledger) => (ledger).ledger == icp_ledger(),
             // For cycles/other, we treat as USD equivalent (6 decimals)
             _ => false,
         };
