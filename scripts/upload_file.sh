@@ -218,6 +218,3 @@ if [[ "$IDS" == *"$FILE_ID_RES"* ]]; then
 else
   echo "⚠️  Verification Failed: File not found in directory listing."
 fi
-
-
-cleanup()
