@@ -11,7 +11,9 @@ type BucketError = variant {
 	InvalidFileId
 };
 type CallerPaysIcrc2Tokens = record { ledger : principal };
+type DeleteFileResult = variant { Ok; Err : BucketError };
 type FileId = record { id : blob; owner : principal };
+type GetChunkResult = variant { Ok : blob; Err : BucketError };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
 	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
@@ -20,9 +22,7 @@ type PaymentType = variant {
 	CallerPaysIcrc2Tokens : CallerPaysIcrc2Tokens;
 	PatronPaysIcrc2Cycles : Account
 };
-type Result = variant { Ok; Err : BucketError };
-type Result_1 = variant { Ok : blob; Err : BucketError };
-type Result_2 = variant { Ok : nat32; Err : BucketError };
+type PutChunkResult = variant { Ok : nat32; Err : BucketError };
 type UploadToken = record {
 	sig : blob;
 	bucket_id : principal;
@@ -33,8 +33,8 @@ type UploadToken = record {
 	file_id : FileId
 };
 service : {
-	delete_file : (FileId) -> (Result);
-	get_chunk : (FileId, nat32) -> (Result_1) query;
-	put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (Result_2);
+	delete_file : (FileId) -> (DeleteFileResult);
+	get_chunk : (FileId, nat32) -> (GetChunkResult) query;
+	put_chunk : (UploadToken, nat32, blob, opt PaymentType) -> (PutChunkResult);
 	stat : () -> (text) query
 }
