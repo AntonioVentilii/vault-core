@@ -14,18 +14,27 @@ if [ ! -f "$FILE_PATH" ]; then
   exit 1
 fi
 
+# Helper to convert hex string to Candid blob format
+hex_to_candid_blob() {
+  local hex="$1"
+  # turns "a1b2" into "\a1\b2"
+  echo "blob \"$(echo "$hex" | sed 's/../\\&/g')\""
+}
+
 # 1. Preparation
 NETWORK="${DFX_NETWORK:-local}"
 WALLET="$(dfx identity get-wallet --network "$NETWORK")"
 FILENAME=$(basename "$FILE_PATH")
+OUT_DIR="out/upload"
+mkdir -p "$OUT_DIR"
 
 # Cleanup trap
 cleanup() {
   if [ "${KEEP_TMP:-0}" = "1" ] || [ "${EXIT_CODE:-0}" != "0" ]; then
-    echo "🧪 Keeping tmp outputs for debugging (EXIT_CODE=$EXIT_CODE)."
+    echo "🧪 Keeping outputs in $OUT_DIR (EXIT_CODE=$EXIT_CODE)."
     return
   fi
-  rm -f start_upload_out.txt tokens_out.txt put_chunk_out.txt commit_out.txt list_out.txt
+  rm -rf "$OUT_DIR"
 }
 EXIT_CODE=0
 trap 'EXIT_CODE=$?; cleanup' EXIT
@@ -40,31 +49,20 @@ echo "   Type: $MIME_TYPE"
 # 2. Start Upload
 echo "🚀 Starting upload session..."
 
-# Get wallet for cycles
-echo "💳 Getting wallet..."
-WALLET_OUT=$(dfx identity get-wallet 2>&1)
-if [ $? -ne 0 ]; then
-  echo "❌ Could not find a wallet for the current identity. Response: $WALLET_OUT"
-  echo "Please create one using 'dfx identity deploy-wallet'."
-  exit 1
-fi
-WALLET=$WALLET_OUT
-echo "💳 Using wallet: $WALLET"
-
 # Start upload session
 echo "   Calls directory.start_upload..."
 dfx canister call directory start_upload "(\"$FILENAME\", \"$MIME_TYPE\", $FILE_SIZE, opt variant { AttachedCycles })" \
   --network "$NETWORK" \
   --wallet "$WALLET" \
   --with-cycles 100000000 \
-  >start_upload_out.txt 2>&1
+  >"$OUT_DIR/start_upload_out.txt" 2>&1
 
-START_RES=$(cat start_upload_out.txt | idl2json)
+START_RES=$(cat "$OUT_DIR/start_upload_out.txt" | idl2json)
 
 # Check for error in output
-if grep -q "Err" start_upload_out.txt; then
+if grep -q "Err" "$OUT_DIR/start_upload_out.txt"; then
   echo "❌ Start upload returned failure:"
-  cat start_upload_out.txt
+  cat "$OUT_DIR/start_upload_out.txt"
   exit 1
 fi
 
@@ -74,7 +72,6 @@ EXPECTED_CHUNKS=$(echo "$START_RES" | jq -r '.Ok.expected_chunk_count')
 
 # Format UPLOAD_ID for Candid (upload_id is vec nat8)
 UPLOAD_ID_HEX=$(echo "$START_RES" | jq -r '.Ok.upload_id[]' | xargs printf "%02x")
-UPLOAD_ID_ARG="blob \"\\$UPLOAD_ID_HEX\""
 
 if [ -z "$UPLOAD_ID_HEX" ] || [ "$UPLOAD_ID_HEX" = "null" ]; then
   echo "❌ Failed to parse upload session (upload_id). Raw response:"
@@ -82,10 +79,8 @@ if [ -z "$UPLOAD_ID_HEX" ] || [ "$UPLOAD_ID_HEX" = "null" ]; then
   exit 1
 fi
 
-# Format UPLOAD_ID for Candid
-UPLOAD_ID_HEX=$(echo "$START_RES" | jq -r '.Ok.upload_id[]' | xargs printf "%02x")
-UPLOAD_ID_ESCAPED=$(echo "$UPLOAD_ID_HEX" | sed 's/../\\&/g')
-UPLOAD_ID_ARG="blob \"$UPLOAD_ID_ESCAPED\""
+# Candid expects blob "\xx\yy..." (not a raw hex string)
+UPLOAD_ID_ARG=$(hex_to_candid_blob "$UPLOAD_ID_HEX")
 
 echo "🆔 Upload ID: $UPLOAD_ID_HEX"
 echo "📦 Chunk Size: $CHUNK_SIZE"
@@ -107,16 +102,16 @@ CHUNK_INDICES_VEC="$CHUNK_INDICES_VEC }"
 dfx canister call directory get_upload_tokens "($UPLOAD_ID_ARG, $CHUNK_INDICES_VEC)" \
   --network "$NETWORK" \
   --wallet "$WALLET" \
-  >tokens_out.txt 2>&1
+  >"$OUT_DIR/tokens_out.txt" 2>&1
 
 # Hard fail if the canister returned Err (or call failed)
-if grep -q "Err" tokens_out.txt; then
+if grep -q "Err" "$OUT_DIR/tokens_out.txt"; then
   echo "❌ get_upload_tokens returned failure:"
-  cat tokens_out.txt
+  cat "$OUT_DIR/tokens_out.txt"
   exit 1
 fi
 
-TOKENS_RES=$(cat tokens_out.txt | idl2json)
+TOKENS_RES=$(cat "$OUT_DIR/tokens_out.txt" | idl2json)
 
 # Ensure we actually have an Ok array
 TOKENS_LEN=$(echo "$TOKENS_RES" | jq -r '.Ok | length // 0')
@@ -125,7 +120,7 @@ if [ "$TOKENS_LEN" -eq 0 ]; then
   echo "❌ No tokens received. Parsed response:"
   echo "$TOKENS_RES" | jq .
   echo "Raw candid response:"
-  cat tokens_out.txt
+  cat "$OUT_DIR/tokens_out.txt"
   exit 1
 fi
 
@@ -152,14 +147,18 @@ for ((i = 0; i < EXPECTED_CHUNKS; i++)); do
   FILE_ID_BLOB_HEX=$(echo "$TOKEN_JSON" | jq -r '.file_id.id[]' | xargs printf "%02x")
   FILE_ID_OWNER=$(echo "$TOKEN_JSON" | jq -r '.file_id.owner')
 
+  SIG_BLOB=$(hex_to_candid_blob "$SIG_HEX")
+  UPLOAD_ID_BLOB=$(hex_to_candid_blob "$UPLOAD_ID_HEX")
+  FILE_ID_BLOB=$(hex_to_candid_blob "$FILE_ID_BLOB_HEX")
+
   TOKEN_ARG="record {
-        sig = blob \"\\$SIG_HEX\";
+        sig = $SIG_BLOB;
         bucket_id = principal \"$BUCKET_ID\";
-        upload_id = blob \"\\$UPLOAD_ID_HEX\";
+        upload_id = $UPLOAD_ID_BLOB;
         directory_id = principal \"$DIR_ID\";
         expires_at = $EXPIRES_AT;
         allowed_chunks = vec { $ALLOWED_CHUNKS };
-        file_id = record { id = blob \"\\$FILE_ID_BLOB_HEX\"; owner = principal \"$FILE_ID_OWNER\" }
+        file_id = record { id = $FILE_ID_BLOB; owner = principal \"$FILE_ID_OWNER\" }
     }"
 
   # Read Chunk Data
@@ -167,18 +166,19 @@ for ((i = 0; i < EXPECTED_CHUNKS; i++)); do
   dd if="$FILE_PATH" of="$CHUNK_FILE" bs=$CHUNK_SIZE skip=$i count=1 2>/dev/null
 
   CHUNK_HEX=$(xxd -p -c 100000000 "$CHUNK_FILE")
-  CHUNK_BLOB="blob \"\\$CHUNK_HEX\""
+  CHUNK_BLOB=$(hex_to_candid_blob "$CHUNK_HEX")
 
   # Call put_chunk
   echo "   Sending Chunk $i to bucket $BUCKET_ID..."
   dfx canister call bucket put_chunk "($TOKEN_ARG, $i, $CHUNK_BLOB, null)" \
     --network "$NETWORK" \
     --wallet "$WALLET" \
-    >put_chunk_out.txt 2>&1
+    --with-cycles 50000 \
+    >"$OUT_DIR/put_chunk_out.txt" 2>&1
 
-  if grep -q "Err" put_chunk_out.txt; then
+  if grep -q "Err" "$OUT_DIR/put_chunk_out.txt"; then
     echo "❌ Failed to put chunk $i"
-    cat put_chunk_out.txt
+    cat "$OUT_DIR/put_chunk_out.txt"
     rm "$CHUNK_FILE"
     exit 1
   fi
@@ -191,8 +191,8 @@ echo "💾 Committing upload..."
 dfx canister call directory commit_upload "($UPLOAD_ID_ARG)" \
   --network "$NETWORK" \
   --wallet "$WALLET" \
-  >commit_out.txt 2>&1
-COMMIT_RES=$(cat commit_out.txt | idl2json)
+  >"$OUT_DIR/commit_out.txt" 2>&1
+COMMIT_RES=$(cat "$OUT_DIR/commit_out.txt" | idl2json)
 
 if [ "$(echo "$COMMIT_RES" | jq -r '.Err // empty')" != "" ]; then
   echo "❌ Failed to commit upload"
@@ -209,8 +209,8 @@ echo "🔍 Verifying file presence..."
 dfx canister call directory list_files '()' \
   --network "$NETWORK" \
   --wallet "$WALLET" \
-  >list_out.txt 2>&1
-LIST_RES=$(cat list_out.txt | idl2json)
+  >"$OUT_DIR/list_out.txt" 2>&1
+LIST_RES=$(cat "$OUT_DIR/list_out.txt" | idl2json)
 
 IDS=$(echo "$LIST_RES" | jq -r '.[].file_id.id[]' | xargs printf "%02x")
 if [[ "$IDS" == *"$FILE_ID_RES"* ]]; then
@@ -218,3 +218,6 @@ if [[ "$IDS" == *"$FILE_ID_RES"* ]]; then
 else
   echo "⚠️  Verification Failed: File not found in directory listing."
 fi
+
+
+cleanup()
