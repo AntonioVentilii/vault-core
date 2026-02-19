@@ -4,11 +4,13 @@ The Directory canister acts as the orchestrator of the Vault Core system. It is 
 
 ## 🔷 Core Responsibilities
 
-- **User Accounts**: Manages storage quotas and tracks used space for each user.
+- **User Accounts**: Manages storage quotas, prepaid balances, and account expiration.
+- **Rent Management**: Tracks the TTL (Time-to-Live) of user accounts and implements the **Rent Model**.
+- **Garbage Collection**: Automatically cleans up data from accounts that remain expired beyond the grace period.
 - **File Metadata**: Stores an index of all files, including their size, status, and associated buckets.
 - **Upload Coordination**: Manages upload sessions and issues signed `UploadToken`s to the frontend.
 - **Bucket Routing**: Maps files to specific bucket canisters and handles shard growth.
-- **PAPI Implementation**: Enforces payment for metadata operations (e.g., `start_upload`) via the `PAYMENT_GUARD`.
+- **PAPI Implementation**: Enforces payment for metadata operations and top-ups via the `PAYMENT_GUARD`.
 
 ## 🔷 Key Modules
 

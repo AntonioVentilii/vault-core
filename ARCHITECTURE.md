@@ -47,8 +47,15 @@ flowchart TB
 
 Payment logic is modularised into `payments.rs` in each canister, using the **PAPI (Paid APIs)** library.
 
-- **Directory (Control Plane)**: Enforces fees for metadata operations (e.g., starting an upload). Supports Cycles (direct or via Ledger) and ICRC-2 Tokens.
-- **Bucket (Data Plane)**: Enforces "attached cycles" for data-heavy operations (`put_chunk`). This ensures that bucket canisters are refueled directly by the users, preventing resource exhaustion during large uploads.
+- **Directory (Control Plane)**: Enforces fees for metadata operations and manages the **Rent Model**. It tracks a user's `expires_at_ns` and `prepaid_balance`.
+- **Bucket (Data Plane)**: Enforces storage fees for `put_chunk`. Now supports both **Attached Cycles** and **ICRC-2 Tokens** (ICP/ckUSDC), ensuring that bucket canisters are refueled directly by the users.
+
+### Rent Model & Garbage Collection
+
+The Directory canister uses a `canister_heartbeat` to periodically run a `garbage_collect` task.
+
+- **Expiry**: When `time() > expires_at_ns + 30 days`, the user's account and all associated files are deleted.
+- **Top-Up**: Users can extend their expiration by calling `top_up_balance`.
 
 ## 🔷 Upload Sequence Diagram (Complete Flow)
 
@@ -65,6 +72,7 @@ sequenceDiagram
 
     Note over U, D: 2. Authorization Phase
     U->>D: start_upload(Size, PaymentInfo)
+    Note right of D: Check if Account Expired
     D->>L: icrc2_transfer_from(User, Amount)
     D-->>U: upload_id
 

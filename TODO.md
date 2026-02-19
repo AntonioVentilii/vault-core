@@ -9,16 +9,20 @@ This file tracks the missing features and improvements required to fully satisfy
 - [x] **Directory: `get_file_meta(file_id)`**
 - [x] **Directory: `abort_upload(upload_id)`**
 - [ ] **Directory: `get_pricing()`**
-  - Needs to return structured pricing data instead of a static string.
+  - Current version returns a string; needs structured JSON/Candid pricing info.
 
 ## ⚙️ Administrative & Management
 
+- [x] **Directory: `admin_withdraw(ledger, amount, to)`**
+- [x] **Bucket: `admin_withdraw(ledger, amount, to)`**
 - [ ] **Directory: Pagination for `list_files`**
   - Implement `cursor` and `limit` support.
 - [ ] **Directory: `admin_set_pricing(...)`**
 - [ ] **Directory: `admin_set_quota(user, ...)`**
+- [x] **Directory: `garbage_collect()`**
+  - Implemented for user account expiration.
 - [ ] **Directory: `reap_expired_uploads()`**
-  - Automatic cleanup of stale `Pending` uploads.
+  - Specific cleanup for stale `Pending` uploads (sessions).
 - [ ] **Bucket: `set_read_only(bool)`**
   - Administrative control over bucket writability.
 
@@ -33,5 +37,5 @@ This file tracks the missing features and improvements required to fully satisfy
 
 ## 🛠️ Refinement
 
-- [ ] **Directory: `start_upload` field mapping**
-  - Store the `name` and `mime` type in the `UploadSession` to correctly populate `FileMeta` on commit.
+- [x] **Directory: `start_upload` field mapping**
+  - `name` and `mime` are now correctly stored in the `UploadSession`.

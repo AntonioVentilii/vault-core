@@ -129,3 +129,30 @@ impl From<Result<Vec<UploadToken>, DirectoryError>> for GetUploadTokensResult {
         }
     }
 }
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum TopUpBalanceResult {
+    Ok(u64), // New expiry
+    Err(DirectoryError),
+}
+impl From<Result<u64, DirectoryError>> for TopUpBalanceResult {
+    fn from(value: Result<u64, DirectoryError>) -> Self {
+        match value {
+            Ok(v) => TopUpBalanceResult::Ok(v),
+            Err(e) => TopUpBalanceResult::Err(e),
+        }
+    }
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum AdminWithdrawResult {
+    Ok,
+    Err(DirectoryError),
+}
+impl From<Result<(), DirectoryError>> for AdminWithdrawResult {
+    fn from(value: Result<(), DirectoryError>) -> Self {
+        match value {
+            Ok(_) => AdminWithdrawResult::Ok,
+            Err(e) => AdminWithdrawResult::Err(e),
+        }
+    }
+}

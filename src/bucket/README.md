@@ -6,8 +6,9 @@ The Bucket canister is a high-performance storage shard in the Vault Core ecosys
 
 - **Data Persistence**: Stores file chunks in stable structures to survive canister upgrades.
 - **Access Control**: Verifies `UploadToken` signatures before allowing data writes.
-- **Resource Sustainability**: Uses PAPI to enforce that users attach cycles to storage-heavy operations (e.g., `put_chunk`), ensuring the canister remains fueled as data grows.
-- **Reporting**: Reports successful chunk uploads back to the Directory canister for metadata synchronization.
+- **Resource Sustainability**: Uses PAPI to enforce that users attach cycles or transfer **ICRC-2 tokens** (ICP/ckUSDC) for storage-heavy operations.
+- **Administrative Withdrawal**: Allows controllers to withdraw collected token fees.
+- **Reporting**: Reports successful chunk uploads back to the Directory canister.
 
 ## 🔷 Key Modules
 

@@ -7,6 +7,8 @@ Vault Core is a high-performance, sharded file storage system built for the **In
 - **Sharded Architecture**: Separates the control plane (**Directory**) from the data plane (**Buckets**) for massive horizontal scalability.
 - **PAPI Billing Integration**: Native support for **Paid APIs (PAPI)**, allowing canisters to be self-sustaining via attached Cycles and support profit collection through ICRC-2 tokens.
 - **Quota Management**: User-specific storage limits and usage tracking.
+- **Rent/TTL Model**: Automated "Pay-As-You-Go" storage with a prepaid balance and transparent expiration tracking.
+- **Garbage Collection**: Periodic automated cleanup of data from expired accounts via `canister_heartbeat`.
 - **Modular Design**: Extensible codebase with clearly defined modules for configuration, memory management, and payments.
 - **Stable Memory**: Leverages `ic-stable-structures` for robust data persistence across canister upgrades.
 
@@ -14,11 +16,12 @@ Vault Core is a high-performance, sharded file storage system built for the **In
 
 Vault Core consists of two main canister types:
 
-1.  [**Directory Canister**](file:///Users/antonio.ventilii/projects/vault-core/src/directory/README.md): The orchestrator. Manages user accounts, quotas, file metadata, and bucket routing.
+1.  [**Directory Canister**](file:///Users/antonio.ventilii/projects/vault-core/src/directory/README.md): The orchestrator. Manages user accounts, quotas, file metadata, expiration (TTL), and bucket routing.
 2.  [**Bucket Canisters**](file:///Users/antonio.ventilii/projects/vault-core/src/bucket/README.md): The storage workers. Handle chunked file data and enforce payment for storage operations.
 
 For a detailed look at the system design and interaction diagrams, see [ARCHITECTURE.md](file:///Users/antonio.ventilii/projects/vault-core/ARCHITECTURE.md).
 For a deep dive into authorization, see [UPLOAD_TOKENS.md](file:///Users/antonio.ventilii/projects/vault-core/UPLOAD_TOKENS.md).
+For the economic strategy, see [REVENUE_MODEL.md](file:///Users/antonio.ventilii/projects/vault-core/REVENUE_MODEL.md).
 
 ## 🔷 Getting Started
 

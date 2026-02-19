@@ -1,3 +1,4 @@
+use candid::Principal;
 use ic_cdk::{api::time, call, eprintln, id, query, spawn, update};
 use ic_papi_api::PaymentType;
 use shared::{
@@ -9,7 +10,7 @@ use crate::{
     errors::BucketError,
     memory::CHUNKS,
     payments::{SignerMethods, PAYMENT_GUARD},
-    results::{DeleteFileResult, GetChunkResult, PutChunkResult},
+    results::{AdminWithdrawResult, DeleteFileResult, GetChunkResult, PutChunkResult},
     types::{ChunkKey, ChunkValue},
 };
 
@@ -23,12 +24,10 @@ pub async fn put_chunk(
     payment: Option<PaymentType>,
 ) -> PutChunkResult {
     let result: Result<u32, BucketError> = async {
+        let ptype = payment.unwrap_or(PaymentType::AttachedCycles);
         // 1. PAPI Payment Deduction
         PAYMENT_GUARD
-            .deduct(
-                payment.unwrap_or(PaymentType::AttachedCycles),
-                SignerMethods::PutChunk.fee(),
-            )
+            .deduct(ptype.clone(), SignerMethods::PutChunk.fee(&ptype))
             .await
             .map_err(|e| BucketError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
 
@@ -179,4 +178,42 @@ pub fn delete_file(file_id: FileId) -> DeleteFileResult {
 #[query]
 pub fn stat() -> String {
     format!("Chunks stored: {}", CHUNKS.with(|c| c.borrow().len()))
+}
+
+#[update]
+pub async fn admin_withdraw(ledger: Principal, amount: u64, to: Principal) -> AdminWithdrawResult {
+    let result: Result<(), BucketError> = async {
+        if !ic_cdk::api::is_controller(&ic_cdk::caller()) {
+            return Err(BucketError::Unauthorized);
+        }
+
+        // ICRC-1 transfer call
+        let arg = shared::types::Icrc1TransferArgs {
+            from_subaccount: None,
+            to: shared::types::Icrc1Account {
+                owner: to,
+                subaccount: None,
+            },
+            amount: amount.into(),
+            fee: None,
+            memo: None,
+            created_at_time: None,
+        };
+
+        let res: Result<(shared::types::Icrc1TransferResult,), _> =
+            ic_cdk::call(ledger, "icrc1_transfer", (arg,)).await;
+
+        match res {
+            Ok((shared::types::Icrc1TransferResult::Ok(_),)) => Ok(()),
+            Ok((shared::types::Icrc1TransferResult::Err(e),)) => {
+                Err(BucketError::PaymentFailed(format!("ICRC1 error: {:?}", e)))
+            }
+            Err((code, msg)) => Err(BucketError::PaymentFailed(format!(
+                "Call error: {:?} {}",
+                code, msg
+            ))),
+        }
+    }
+    .await;
+    result.into()
 }

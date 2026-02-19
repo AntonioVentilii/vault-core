@@ -7,12 +7,12 @@ pub mod results;
 pub mod types;
 
 pub use api::{
-    commit_upload, delete_file, get_pricing, get_upload_tokens, get_usage, list_files,
-    provision_bucket, report_chunk_uploaded, start_upload,
+    admin_withdraw, commit_upload, delete_file, garbage_collect, get_pricing, get_upload_tokens,
+    get_usage, list_files, provision_bucket, report_chunk_uploaded, start_upload, top_up_balance,
 };
 use candid::Principal;
-use ic_cdk::export_candid;
-use ic_cdk_macros::{init, post_upgrade};
+use ic_cdk::{export_candid, spawn};
+use ic_cdk_macros::{heartbeat, init, post_upgrade};
 pub use ic_papi_api::PaymentType;
 use shared::types::{FileId, FileMeta};
 
@@ -20,9 +20,9 @@ use crate::{
     config::Args,
     memory::{mutate_config, set_config},
     results::{
-        AbortUploadResult, CommitUploadResult, DeleteFileResult, GetDownloadPlanResult,
-        GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult, ReportChunkUploadedResult,
-        StartUploadResult,
+        AbortUploadResult, AdminWithdrawResult, CommitUploadResult, DeleteFileResult,
+        GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult,
+        ReportChunkUploadedResult, StartUploadResult, TopUpBalanceResult,
     },
     types::UserState,
 };
@@ -47,12 +47,31 @@ fn post_upgrade(args: Option<Args>) {
                     if let Some(ckusdc) = upgrade_args.ckusdc_ledger {
                         config.ckusdc_ledger = Some(ckusdc);
                     }
+                    if let Some(rate) = upgrade_args.rate_per_gb_per_month {
+                        config.rate_per_gb_per_month = rate;
+                    }
                 });
             }
             Args::Upgrade(None) => {}
             Args::Init(_) => ic_cdk::trap("Cannot use init variant in post_upgrade"),
         }
     }
+}
+
+#[heartbeat]
+fn heartbeat() {
+    // Only run garbage collection occasionally (e.g., every 1000 heartbeats)
+    thread_local! {
+        static TICK: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    }
+
+    TICK.with(|t| {
+        let current = t.get();
+        if current % 1000 == 0 {
+            spawn(garbage_collect());
+        }
+        t.set(current + 1);
+    });
 }
 
 export_candid!();

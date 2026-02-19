@@ -107,3 +107,49 @@ pub struct UploadToken {
     pub allowed_chunks: Vec<u32>,
     pub sig: Vec<u8>,
 }
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct Icrc1Account {
+    pub owner: Principal,
+    pub subaccount: Option<Vec<u8>>,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct Icrc1TransferArgs {
+    pub from_subaccount: Option<Vec<u8>>,
+    pub to: Icrc1Account,
+    pub amount: candid::Nat,
+    pub fee: Option<candid::Nat>,
+    pub memo: Option<Vec<u8>>,
+    pub created_at_time: Option<u64>,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum Icrc1TransferResult {
+    Ok(candid::Nat),
+    Err(Icrc1TransferError),
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum Icrc1TransferError {
+    BadFee {
+        expected_fee: candid::Nat,
+    },
+    BadBurn {
+        min_burn_amount: candid::Nat,
+    },
+    InsufficientFunds {
+        balance: candid::Nat,
+    },
+    TooOld,
+    CreatedInFuture {
+        ledger_time: u64,
+    },
+    Duplicate {
+        duplicate_of: candid::Nat,
+    },
+    TemporarilyUnavailable,
+    GenericError {
+        error_code: candid::Nat,
+        message: String,
+    },
+}

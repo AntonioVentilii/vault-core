@@ -5,21 +5,18 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub icp_ledger: Option<Principal>,
     pub ckusdc_ledger: Option<Principal>,
-    pub rate_per_gb_per_month: u64,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct InitArgs {
     pub icp_ledger: Principal,
     pub ckusdc_ledger: Principal,
-    pub rate_per_gb_per_month: u64,
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct UpgradeArgs {
     pub icp_ledger: Option<Principal>,
     pub ckusdc_ledger: Option<Principal>,
-    pub rate_per_gb_per_month: Option<u64>,
 }
 
 #[derive(CandidType, Deserialize)]
@@ -33,7 +30,6 @@ impl From<InitArgs> for Config {
         Self {
             icp_ledger: Some(args.icp_ledger),
             ckusdc_ledger: Some(args.ckusdc_ledger),
-            rate_per_gb_per_month: args.rate_per_gb_per_month,
         }
     }
 }

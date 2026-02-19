@@ -9,12 +9,12 @@ use shared::{
 
 use crate::{
     errors::DirectoryError,
-    memory::{StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, UPLOADS, USERS},
+    memory::{read_config, StorablePrincipal, BUCKETS, FILES, FILE_TO_BUCKET, UPLOADS, USERS},
     payments::{SignerMethods, PAYMENT_GUARD},
     results::{
-        AbortUploadResult, CommitUploadResult, DeleteFileResult, GetDownloadPlanResult,
-        GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult, ReportChunkUploadedResult,
-        StartUploadResult,
+        AbortUploadResult, AdminWithdrawResult, CommitUploadResult, DeleteFileResult,
+        GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult, ProvisionBucketResult,
+        ReportChunkUploadedResult, StartUploadResult, TopUpBalanceResult,
     },
     types::{BucketInfo, UserState},
 };
@@ -69,13 +69,21 @@ pub async fn start_upload(
             .await
             .map_err(|e| DirectoryError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
 
-        // 2. Check Quota
+        // 2. Check Quota and Expiration
         let user_state = USERS.with(|u| {
             u.borrow().get(&key).unwrap_or(UserState {
                 used_bytes: 0,
                 quota_bytes: 10 * 1024 * 1024 * 1024, // 10GiB default
+                expires_at_ns: None,
+                prepaid_balance: 0,
             })
         });
+
+        if let Some(expires_at) = user_state.expires_at_ns {
+            if expires_at < time() {
+                return Err(DirectoryError::Unauthorized); // Or a specific Expired error
+            }
+        }
 
         if user_state.used_bytes + size_bytes > user_state.quota_bytes {
             return Err(DirectoryError::QuotaExceeded {
@@ -353,4 +361,128 @@ pub fn get_upload_tokens(upload_id: Vec<u8>, chunks: Vec<u32>) -> GetUploadToken
     })();
 
     result.into()
+}
+
+const MONTH_NS: u64 = 30 * 24 * 3600 * 1_000_000_000;
+const GIB_BYTES: u64 = 1024 * 1024 * 1024;
+
+#[update]
+pub async fn top_up_balance(amount: u64, payment: PaymentType) -> TopUpBalanceResult {
+    let result: Result<u64, DirectoryError> = async {
+        let caller = ic_cdk::caller();
+
+        // 1. Deduct payment
+        PAYMENT_GUARD
+            .deduct(
+                payment,
+                SignerMethods::TopUp(amount).fee(&PaymentType::AttachedCycles),
+            )
+            .await
+            .map_err(|e| DirectoryError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
+
+        // 2. Update expiration
+        let key = StorablePrincipal(caller);
+        let config = read_config(|c| c.clone());
+
+        let new_expiry = USERS.with(|u| {
+            let mut map = u.borrow_mut();
+            let mut state = map.get(&key).unwrap_or(UserState {
+                used_bytes: 0,
+                quota_bytes: 10 * GIB_BYTES,
+                expires_at_ns: None,
+                prepaid_balance: 0,
+            });
+
+            // If used_bytes is 0, give them extension as if they used 1MB (min charge)
+            let used_for_calc = state.used_bytes.max(1024 * 1024);
+            let used_gib = used_for_calc as f64 / GIB_BYTES as f64;
+            let monthly_cost = used_gib * config.rate_per_gb_per_month as f64;
+
+            let extension_months = amount as f64 / monthly_cost.max(1.0);
+            let extension_ns = (extension_months * MONTH_NS as f64) as u64;
+
+            let current_expiry = state.expires_at_ns.unwrap_or(time());
+            let base = current_expiry.max(time());
+            let next_expiry = base + extension_ns;
+
+            state.expires_at_ns = Some(next_expiry);
+            state.prepaid_balance += amount;
+            map.insert(key, state);
+            next_expiry
+        });
+
+        Ok(new_expiry)
+    }
+    .await;
+    result.into()
+}
+
+#[update]
+pub async fn admin_withdraw(ledger: Principal, amount: u64, to: Principal) -> AdminWithdrawResult {
+    let result: Result<(), DirectoryError> = async {
+        if !ic_cdk::api::is_controller(&ic_cdk::caller()) {
+            return Err(DirectoryError::Unauthorized);
+        }
+
+        // ICRC-1 transfer call
+        let arg = shared::types::Icrc1TransferArgs {
+            from_subaccount: None,
+            to: shared::types::Icrc1Account {
+                owner: to,
+                subaccount: None,
+            },
+            amount: amount.into(),
+            fee: None,
+            memo: None,
+            created_at_time: None,
+        };
+
+        let res: Result<(shared::types::Icrc1TransferResult,), _> =
+            ic_cdk::call(ledger, "icrc1_transfer", (arg,)).await;
+
+        match res {
+            Ok((shared::types::Icrc1TransferResult::Ok(_),)) => Ok(()),
+            Ok((shared::types::Icrc1TransferResult::Err(e),)) => Err(
+                DirectoryError::PaymentFailed(format!("ICRC1 error: {:?}", e)),
+            ),
+            Err((code, msg)) => Err(DirectoryError::PaymentFailed(format!(
+                "Call error: {:?} {}",
+                code, msg
+            ))),
+        }
+    }
+    .await;
+    result.into()
+}
+
+#[update]
+pub async fn garbage_collect() {
+    let now = ic_cdk::api::time();
+    let grace_period: u64 = 30 * 24 * 3600 * 1_000_000_000; // 30 days in ns
+
+    let expired_users: Vec<Principal> = USERS.with(|u| {
+        u.borrow()
+            .iter()
+            .filter(|(_, state)| state.expires_at_ns.is_some_and(|e| e + grace_period < now))
+            .map(|(p, _)| p.0)
+            .take(10)
+            .collect()
+    });
+
+    for user_id in expired_users {
+        let file_ids: Vec<FileId> = FILES.with(|f| {
+            f.borrow()
+                .iter()
+                .filter(|(fid, _)| fid.owner == user_id)
+                .map(|(fid, _)| fid.clone())
+                .collect()
+        });
+
+        for fid in file_ids {
+            FILES.with(|f| f.borrow_mut().remove(&fid));
+            FILE_TO_BUCKET.with(|ftb| ftb.borrow_mut().remove(&fid));
+        }
+
+        USERS.with(|u| u.borrow_mut().remove(&StorablePrincipal(user_id)));
+    }
 }
