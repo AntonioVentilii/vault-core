@@ -1,4 +1,4 @@
-use candid::{CandidType, Principal};
+use candid::Principal;
 use ic_cdk::api::call::CallResult;
 use ic_cdk_macros::update;
 

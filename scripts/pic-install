@@ -25,16 +25,16 @@ else
     fi
   fi
   # Platform-specific naming in releases can vary, but usually it's pocket-ic-<arch>-<os>.gz
-  
+
   echo "Downloading PocketIC version ${POCKET_IC_SERVER_VERSION} for ${PLATFORM} (${ARCH})."
   # Ensure the directory exists
   mkdir -p "$(dirname "$POCKET_IC_SERVER_PATH")"
-  
+
   URL="https://github.com/dfinity/pocketic/releases/download/${POCKET_IC_SERVER_VERSION}/pocket-ic-${ARCH}-${PLATFORM}.gz"
   echo "Attempting to download: $URL"
-  
+
   HTTP_STATUS=$(curl -sSL -w "%{http_code}" "$URL" -o "${POCKET_IC_SERVER_PATH}.gz")
-  
+
   if [ "$HTTP_STATUS" -ne 200 ]; then
     if [ "$PLATFORM" == "darwin" ] && [ "$ARCH" == "arm64" ]; then
       echo "Native arm64 binary not found (HTTP $HTTP_STATUS). Falling back to x86_64 (Rosetta)."

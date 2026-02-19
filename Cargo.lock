@@ -949,7 +949,7 @@ dependencies = [
 
 [[package]]
 name = "it"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "bucket",
  "candid",
@@ -1902,7 +1902,7 @@ dependencies = [
 
 [[package]]
 name = "test_proxy"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "candid",
  "ic-cdk 0.13.6",

@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 # Ensure we are in project root
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
 # 1. Build canisters (required for tests to find them)
