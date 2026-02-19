@@ -119,6 +119,10 @@ pub fn set_config(arg: crate::config::InitArgs) {
     });
 }
 
-pub fn payment_ledger() -> Principal {
-    read_config(|config| config.cycles_ledger)
+pub fn icp_ledger() -> Principal {
+    read_config(|config| config.icp_ledger)
+}
+
+pub fn ckusdc_ledger() -> Principal {
+    read_config(|config| config.ckusdc_ledger)
 }

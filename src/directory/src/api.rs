@@ -54,10 +54,11 @@ pub async fn start_upload(
     let key = StorablePrincipal(caller);
 
     // 1. PAPI Payment Deduction
+    let payment_type = payment.unwrap_or(PaymentType::AttachedCycles);
     PAYMENT_GUARD
         .deduct(
-            payment.unwrap_or(PaymentType::AttachedCycles),
-            SignerMethods::StartUpload.fee(),
+            payment_type.clone(),
+            SignerMethods::StartUpload.fee(&payment_type),
         )
         .await
         .map_err(|e| DirectoryError::PaymentFailed(format!("Payment failed: {:?}", e)))?;
