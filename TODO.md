@@ -39,3 +39,34 @@ This file tracks the missing features and improvements required to fully satisfy
 
 - [x] **Directory: `start_upload` field mapping**
   - `name` and `mime` are now correctly stored in the `UploadSession`.
+
+## 🔐 Security Evolution
+
+Tracked against [SECURITY_EVOLUTION.md](file:///Users/antonio.ventilii/projects/vault-core/SECURITY_EVOLUTION.md).
+
+### 🛡️ Phase 2: Principal-Based Sharing (ACL)
+
+- [ ] **Directory: ACL Schema Implementation**
+  - Add `readers` and `writers` (BTreeSet<Principal>) to `FileMeta`.
+- [ ] **Directory: Access Control Logic**
+  - Update `get_file_meta`, `get_download_plan`, and `delete_file` to respect ACL.
+- [ ] **Directory: Management API**
+  - `add_file_access(file_id, principal, role)`
+  - `remove_file_access(file_id, principal)`
+
+### 🔗 Phase 3: Link Sharing (Capability-Based)
+
+- [ ] **Directory: Link Token Generation**
+  - Create secure, random 256-bit tokens for sharing.
+- [ ] **Directory: Link Management**
+  - `create_share_link(file_id, ttl)`
+  - `revoke_share_link(link_id)`
+- [ ] **Bucket: Capability Verification**
+  - Logic to verify signed capability tokens (Phase 3 Option B).
+
+### 🕵️ Phase 4: Privacy & Public Access
+
+- [ ] **Directory/Bucket: Public Visibility**
+  - Support for `visibility: Public` to allow unauthenticated access.
+- [ ] **Client-Side Encryption Architecture**
+  - Documentation/Tools for encrypting files before upload to ensure confidentiality.
