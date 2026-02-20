@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euxo pipefail
 
 # Ensure we are in project root

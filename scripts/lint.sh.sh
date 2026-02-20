@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+set -euxo pipefail
+
 cd "$(dirname "$(realpath "$0")")/.." || exit
 
 print_help() {

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+set -euxo pipefail
+
 echo "Checks whether all Cargo dependencies are taken from the workspace"
 
 non_workspace_dependencies() {
