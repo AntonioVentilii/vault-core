@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  docker-build-base:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Build Base Docker Image
+        uses: ./.github/actions/docker-build-base
+
+  wasm:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    needs: docker-build-base
+    strategy:
+      matrix:
+        include:
+          - name: bucket.wasm.gz
+          - name: directory.wasm.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Prepare
+        uses: ./.github/actions/prepare
+
+      - name: Build
+        run: npm run build
+
+      - name: 'Upload ${{ matrix.name }}'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ${{ matrix.name }}
+          path: ./target/wasm32-unknown-unknown/release/${{ matrix.name }}
+
+  candid:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - name: bucket.did
+            target: bucket
+          - name: directory.did
+            target: directory
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: 'Upload ${{ matrix.name }}'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ${{ matrix.name }}
+          path: ./src/${{ matrix.target }}/${{ matrix.name }}
+
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    needs: ['docker-build', 'candid']
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Download buckend.wasm.gz
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: backend.wasm.gz
+          path: .
+
+      - name: Download backend.did
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: backend.did
+          path: .
+
+      - name: Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ./backend*.wasm.gz
+            ./backend*.did

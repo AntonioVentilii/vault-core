@@ -1,14 +1,14 @@
 {
 	"canisters": {
-		"bucket": {
-			"type": "rust",
-			"package": "bucket",
-			"candid": "src/bucket/bucket.did"
-		},
 		"directory": {
 			"type": "rust",
 			"package": "directory",
 			"candid": "src/directory/directory.did"
+		},
+		"bucket_1": {
+			"type": "rust",
+			"package": "bucket",
+			"candid": "src/bucket/bucket.did"
 		}
 	},
 	"defaults": {
