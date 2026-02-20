@@ -2,7 +2,7 @@
 	"name": "valut-core",
 	"version": "0.0.1",
 	"scripts": {
-		"build": "",
+		"build": "./scripts/build.sh",
 		"test": "./scripts/test-integration.sh",
 		"format": "prettier --write . && ./scripts/format.sh",
 		"lint": "prettier --check . && ./scripts/lint.sh",

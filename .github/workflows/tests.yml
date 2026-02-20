@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  rust:
+  integration:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,7 +28,7 @@ jobs:
         run: npm run test
 
   tests-pass:
-    needs: ['rust']
+    needs: ['integration']
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     permissions:
