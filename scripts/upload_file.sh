@@ -57,7 +57,7 @@ dfx canister call directory start_upload "(\"$FILENAME\", \"$MIME_TYPE\", $FILE_
   --with-cycles 100000000 \
   >"$OUT_DIR/start_upload_out.txt" 2>&1
 
-START_RES=$(cat "$OUT_DIR/start_upload_out.txt" | idl2json)
+START_RES=$(idl2json < "$OUT_DIR/start_upload_out.txt")
 
 # Check for error in output
 if grep -q "Err" "$OUT_DIR/start_upload_out.txt"; then
@@ -111,7 +111,7 @@ if grep -q "Err" "$OUT_DIR/tokens_out.txt"; then
   exit 1
 fi
 
-TOKENS_RES=$(cat "$OUT_DIR/tokens_out.txt" | idl2json)
+TOKENS_RES=$(idl2json < "$OUT_DIR/tokens_out.txt")
 
 # Ensure we actually have an Ok array
 TOKENS_LEN=$(echo "$TOKENS_RES" | jq -r '.Ok | length // 0')
@@ -192,7 +192,7 @@ dfx canister call directory commit_upload "($UPLOAD_ID_ARG)" \
   --network "$NETWORK" \
   --wallet "$WALLET" \
   >"$OUT_DIR/commit_out.txt" 2>&1
-COMMIT_RES=$(cat "$OUT_DIR/commit_out.txt" | idl2json)
+COMMIT_RES=$(idl2json < "$OUT_DIR/commit_out.txt")
 
 if [ "$(echo "$COMMIT_RES" | jq -r '.Err // empty')" != "" ]; then
   echo "❌ Failed to commit upload"
@@ -210,7 +210,7 @@ dfx canister call directory list_files '()' \
   --network "$NETWORK" \
   --wallet "$WALLET" \
   >"$OUT_DIR/list_out.txt" 2>&1
-LIST_RES=$(cat "$OUT_DIR/list_out.txt" | idl2json)
+LIST_RES=$(idl2json < "$OUT_DIR/list_out.txt")
 
 IDS=$(echo "$LIST_RES" | jq -r '.[].file_id.id[]' | xargs printf "%02x")
 if [[ "$IDS" == *"$FILE_ID_RES"* ]]; then
