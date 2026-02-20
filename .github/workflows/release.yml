@@ -12,11 +12,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    strategy:
-      matrix:
-        include:
-          - name: bucket.wasm.gz
-          - name: directory.wasm.gz
 
     steps:
       - name: Checkout
@@ -30,11 +25,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: 'Upload ${{ matrix.name }}'
+      - name: Upload bucket.wasm.gz
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: ${{ matrix.name }}
-          path: ./target/wasm32-unknown-unknown/release/${{ matrix.name }}
+          name: bucket.wasm.gz
+          path: ./target/wasm32-unknown-unknown/release/bucket.wasm.gz
+
+      - name: Upload directory.wasm.gz
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: directory.wasm.gz
+          path: ./target/wasm32-unknown-unknown/release/directory.wasm.gz
 
   candid:
     runs-on: ubuntu-24.04
