@@ -17,6 +17,7 @@ type DirectoryError = variant {
 	AccountExpired;
 	UploadSessionNotFound;
 	AdminOnly;
+	BucketAlreadyExists;
 	PaymentFailed : text;
 	Unauthorized;
 	LinkNotFound;
