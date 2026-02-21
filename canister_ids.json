@@ -1,8 +1,8 @@
 {
-	"bucket": {
-		"staging": "xx3y7-4iaaa-aaaak-qw5xq-cai"
-	},
 	"directory": {
 		"staging": "vkgwx-paaaa-aaaak-qw5ya-cai"
+	},
+	"bucket_1": {
+		"staging": "xx3y7-4iaaa-aaaak-qw5xq-cai"
 	}
 }
