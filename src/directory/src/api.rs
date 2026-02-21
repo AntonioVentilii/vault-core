@@ -537,10 +537,18 @@ pub fn provision_bucket(bucket_id: Principal) -> ProvisionBucketResult {
         if !is_admin(ic_cdk::caller()) {
             return Err(DirectoryError::AdminOnly).into();
         }
+
         BUCKETS.with(|b| {
             let mut map = b.borrow_mut();
+
+            let key = StorablePrincipal(bucket_id);
+
+            if map.contains_key(&key) {
+                return Err(DirectoryError::BucketAlreadyExists);
+            }
+
             map.insert(
-                StorablePrincipal(bucket_id),
+                key,
                 BucketInfo {
                     id: bucket_id,
                     writable: true,
@@ -549,8 +557,9 @@ pub fn provision_bucket(bucket_id: Principal) -> ProvisionBucketResult {
                     hard_limit_bytes: 105 * GIB,
                 },
             );
-        });
-        Ok(())
+
+            Ok(())
+        })
     };
 
     result.into()

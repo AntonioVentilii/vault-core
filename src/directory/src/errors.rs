@@ -23,4 +23,5 @@ pub enum DirectoryError {
     LinkExpired,
     AccountExpired,
     AdminOnly,
+    BucketAlreadyExists,
 }
