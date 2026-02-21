@@ -1,4 +1,4 @@
-use candid::{CandidType, Deserialize};
+use candid::{CandidType, Deserialize, Principal};
 use serde::Serialize;
 use shared::types::{DownloadPlan, FileMeta, UploadSession, UploadToken};
 
@@ -112,6 +112,20 @@ impl From<Result<(), DirectoryError>> for ProvisionBucketResult {
         match value {
             Ok(_) => ProvisionBucketResult::Ok,
             Err(e) => ProvisionBucketResult::Err(e),
+        }
+    }
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub enum ListBucketResult {
+    Ok(Vec<Principal>),
+    Err(DirectoryError),
+}
+impl From<Result<Vec<Principal>, DirectoryError>> for ListBucketResult {
+    fn from(value: Result<Vec<Principal>, DirectoryError>) -> Self {
+        match value {
+            Ok(v) => ListBucketResult::Ok(v),
+            Err(e) => ListBucketResult::Err(e),
         }
     }
 }

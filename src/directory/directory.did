@@ -73,6 +73,7 @@ type InitArgs = record {
 	admins : vec principal;
 	shared_secret : blob
 };
+type ListBucketResult = variant { Ok : vec principal; Err : DirectoryError };
 type PatronPaysIcrc2Tokens = record { ledger : principal; patron : Account };
 type PaymentType = variant {
 	PatronPaysIcrc2Tokens : PatronPaysIcrc2Tokens;
@@ -132,6 +133,7 @@ service : (Args) -> {
 	get_status : () -> (CanisterStatus) query;
 	get_upload_tokens : (blob, vec nat32) -> (GetUploadTokensResult);
 	get_usage : (opt principal) -> (UserState) query;
+	list_buckets : () -> (ListBucketResult) query;
 	list_files : () -> (vec FileMeta) query;
 	provision_bucket : (principal) -> (DeleteFileResult);
 	reap_expired_uploads : () -> ();

@@ -21,7 +21,7 @@ use crate::{
     results::{
         AbortUploadResult, AdminWithdrawResult, CommitUploadResult, CreateShareLinkResult,
         DeleteFileResult, GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult,
-        ProvisionBucketResult, ReportChunkUploadedResult, ResolveShareLinkResult,
+        ListBucketResult, ProvisionBucketResult, ReportChunkUploadedResult, ResolveShareLinkResult,
         StartUploadResult, TopUpBalanceResult,
     },
     types::{BucketInfo, UserState},
@@ -561,6 +561,26 @@ pub fn provision_bucket(bucket_id: Principal) -> ProvisionBucketResult {
             Ok(())
         })
     };
+
+    result.into()
+}
+
+#[query]
+pub fn list_buckets() -> ListBucketResult {
+    let result: Result<Vec<Principal>, DirectoryError> = (|| {
+        if !is_admin(ic_cdk::caller()) {
+            return Err(DirectoryError::AdminOnly);
+        }
+
+        let buckets = BUCKETS.with(|b| {
+            b.borrow()
+                .iter()
+                .map(|(_, info)| info.id)
+                .collect::<Vec<Principal>>()
+        });
+
+        Ok(buckets)
+    })();
 
     result.into()
 }

@@ -29,7 +29,7 @@ use crate::{
     results::{
         AbortUploadResult, AdminWithdrawResult, CommitUploadResult, CreateShareLinkResult,
         DeleteFileResult, GetDownloadPlanResult, GetFileMetaResult, GetUploadTokensResult,
-        ProvisionBucketResult, ReportChunkUploadedResult, ResolveShareLinkResult,
+        ListBucketResult, ProvisionBucketResult, ReportChunkUploadedResult, ResolveShareLinkResult,
         StartUploadResult, TopUpBalanceResult,
     },
     types::UserState,
