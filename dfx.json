@@ -6,6 +6,7 @@
 			"candid": "src/directory/directory.did"
 		},
 		"bucket_1": {
+			"dependencies": ["directory"],
 			"type": "rust",
 			"package": "bucket",
 			"candid": "src/bucket/bucket.did"

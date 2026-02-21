@@ -7,7 +7,8 @@
 		"format": "prettier --write . && ./scripts/format.sh",
 		"lint": "prettier --check . && ./scripts/lint.sh",
 		"deploy:prod": "dfx deploy --ic --upgrade-unchanged",
-		"deploy:staging": "dfx deploy --network staging --upgrade-unchanged"
+		"deploy:staging": "dfx deploy --network staging --upgrade-unchanged",
+		"set:bucket:stagign": "dfx canister call directory --network staging provision_bucket \"(principal \\\"$(dfx canister id bucket_1 --network staging)\\\")\""
 	},
 	"devDependencies": {
 		"@icp-sdk/bindgen": "^0.2.1",
